@@ -72,3 +72,80 @@ dotnet build
 dotnet test
 dotnet pack
 ```
+
+---
+
+# ThrottledLogger（中文）
+
+基于时间间隔的 `Microsoft.Extensions.Logging` 日志限流器，可按 key 抑制重复日志，并在恢复输出时报告被抑制的条数。
+
+## 项目结构
+
+| 项目 | 说明 |
+|---|---|
+| `src/ThrottledLogging` | NuGet 库 |
+| `examples/GettingStarted` | 控制台示例，涵盖所有功能 |
+
+## 用法
+
+在任意 `ILogger` 上调用限流扩展方法。每次调用需传入一个 **key**（用于标识被限流的日志消息）和一个 **interval**（两次输出之间的最短间隔）。
+
+```csharp
+// "disk-full" 这个 key 每分钟最多输出一次。
+// 抑制后下次恢复输出时，会自动追加"(N messages suppressed)"。
+logger.LogWarningThrottled("disk-full", TimeSpan.FromMinutes(1), "Disk usage is above {Percent}%", usage);
+```
+
+可用方法与标准 `ILogger` API 一一对应：
+
+- `LogTraceThrottled`
+- `LogDebugThrottled`
+- `LogInformationThrottled`
+- `LogWarningThrottled`
+- `LogErrorThrottled`
+- `LogCriticalThrottled`
+
+每个方法的签名为 `(string key, TimeSpan interval, string? messageTemplate, params ReadOnlySpan<object?> args)`。
+
+### 抑制计数
+
+当某条被限流的消息在经历一次或多次抑制后重新允许输出时，抑制次数会自动追加到消息末尾：
+
+```
+Disk usage is above 95% (3 messages suppressed)
+```
+
+### 多个独立 key
+
+每个 key 拥有独立的限流计数器，互不干扰：
+
+```csharp
+logger.LogErrorThrottled("service-a-down", TimeSpan.FromSeconds(5), "Service A is unreachable");
+logger.LogErrorThrottled("service-b-down", TimeSpan.FromSeconds(5), "Service B is unreachable");
+```
+
+### 全局配置
+
+可在应用启动时调整全局的过期时间和清理周期：
+
+```csharp
+// 空闲条目 30 分钟后过期；每 15 分钟执行一次清理。
+ThrottledLogger.Configure(expiry: TimeSpan.FromMinutes(30), cleanupPeriod: TimeSpan.FromMinutes(15));
+```
+
+| 参数 | 默认值 | 说明 |
+|---|---|---|
+| `expiry` | 1 小时 | 空闲条目在被移除前的保留时长 |
+| `cleanupPeriod` | 1 小时 | 后台清理定时器的运行间隔 |
+
+## 环境要求
+
+- .NET 9 或 .NET 10
+
+## 构建
+
+```bash
+dotnet build
+dotnet test
+dotnet pack
+```
