@@ -23,7 +23,7 @@ Console.WriteLine("=== Example 1: Basic throttling (interval = 1 s) ===");
 Console.WriteLine("Sending 5 rapid calls, then waiting 1.1 s for the window to expire...");
 Console.WriteLine();
 
-for (int i = 1; i <= 5; i++)
+for (var i = 1; i <= 5; i++)
 {
     logger.LogWarningThrottled("disk-usage", TimeSpan.FromSeconds(1),
         "Disk usage is above {Percent}%", 90 + i);
@@ -45,7 +45,7 @@ Console.WriteLine();
 Console.WriteLine("=== Example 2: Multiple keys throttled independently ===");
 Console.WriteLine();
 
-for (int i = 0; i < 3; i++)
+for (var i = 0; i < 3; i++)
 {
     logger.LogErrorThrottled("service-a-down", TimeSpan.FromSeconds(5),
         "Service A is unreachable (attempt {Attempt})", i + 1);
