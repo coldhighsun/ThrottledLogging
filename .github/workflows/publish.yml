@@ -1,0 +1,42 @@
+name: Publish to NuGet
+
+on:
+  push:
+    branches:
+      - main        # pre-release: MinVer generates e.g. 1.0.1-alpha.0.3
+    tags:
+      - "v*.*.*"    # stable: v1.0.0  pre-release: v1.0.0-alpha.1, v1.0.0-beta.1, v1.0.0-rc.1
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # required for MinVer to read git tags
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: |
+            9.x
+            10.x
+
+      - name: Restore
+        run: dotnet restore
+
+      - name: Build
+        run: dotnet build --configuration Release --no-restore
+
+      - name: Test
+        run: dotnet test --configuration Release --no-build
+
+      - name: Pack
+        run: dotnet pack --configuration Release --no-build
+
+      - name: Push to NuGet
+        run: |
+          dotnet nuget push artifacts/package/release/*.nupkg \
+            --api-key ${{ secrets.NUGET_API_KEY }} \
+            --source https://api.nuget.org/v3/index.json \
+            --skip-duplicate

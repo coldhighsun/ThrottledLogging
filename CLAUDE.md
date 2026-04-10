@@ -22,7 +22,9 @@ Targets both `net9.0` and `net10.0`. Build artifacts go to `artifacts/` (configu
 
 ## Architecture
 
-This is a single-project NuGet library (`src/ThrottledLogging/`) with two source files:
+Solution layout: `src/ThrottledLogging/` (library), `tests/ThrottledLogging.Tests/` (xUnit), `examples/GettingStarted/` (console sample).
+
+The library has two source files:
 
 - **`ThrottledLogger.cs`** — Core throttling engine (`public class ThrottledLogger` in namespace `ThrottledLogging`). Uses a `ConditionalWeakTable<ILogger, ThrottledLogger>` to associate one throttler instance per `ILogger` (instances are GC-friendly, tied to the logger's lifetime). Each instance holds a `ConcurrentDictionary<string, Entry>` mapping throttle keys to `(LastLogTick, SuppressedCount)` records. A single static `Timer` periodically cleans up entries idle longer than the configured expiry (default: 1 hour). Timestamps use `Stopwatch.GetTimestamp()` / ticks for high-resolution, allocation-free timing.
 
