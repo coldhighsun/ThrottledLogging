@@ -2,10 +2,10 @@
 
     <PropertyGroup>
         <MinVerTagPrefix>v</MinVerTagPrefix>
-        <PackageReadmeFile>readme.md</PackageReadmeFile>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
         <Description>A lightweight, zero-configuration log throttler for Microsoft.Extensions.Logging. Suppress high-frequency repeated log entries per key and automatically report the suppressed count when logging resumes — with no setup or disposal required.</Description>
         <PackageTags>logging;throttle;rate-limit;microsoft-extensions-logging;aspnetcore</PackageTags>
-        <Authors>Gaoyang</Authors>
+        <Authors>coldhighsun</Authors>
         <PackageLicenseExpression>MIT</PackageLicenseExpression>
         <PackageProjectUrl>https://github.com/coldhighsun/ThrottledLogging</PackageProjectUrl>
         <RepositoryUrl>https://github.com/coldhighsun/ThrottledLogging</RepositoryUrl>
@@ -14,10 +14,11 @@
     
     <ItemGroup>
         <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
+        <PackageReference Include="MinVer" PrivateAssets="all" />
     </ItemGroup>
 
     <ItemGroup>
-        <None Include="readme.md">
+        <None Include="README.md">
             <Pack>True</Pack>
             <PackagePath>\</PackagePath>
         </None>
