@@ -1,4 +1,3 @@
-using ThrottledLogging;
 using Xunit;
 
 namespace ThrottledLogging.Tests;

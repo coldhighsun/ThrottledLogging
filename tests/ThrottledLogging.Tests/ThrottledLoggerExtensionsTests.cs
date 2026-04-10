@@ -1,5 +1,4 @@
 using Microsoft.Extensions.Logging;
-using ThrottledLogging;
 using Xunit;
 
 namespace ThrottledLogging.Tests;
