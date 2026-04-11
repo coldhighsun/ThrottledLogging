@@ -2,8 +2,6 @@ name: Publish to NuGet
 
 on:
   push:
-    branches:
-      - main        # pre-release: MinVer generates e.g. 1.0.1-alpha.0.3
     tags:
       - "v*.*.*"    # stable: v1.0.0  pre-release: v1.0.0-alpha.1, v1.0.0-beta.1, v1.0.0-rc.1
 
