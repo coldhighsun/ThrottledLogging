@@ -1,4 +1,4 @@
-# ThrottledLogger&nbsp;[![Build status](https://github.com/coldhighsun/ThrottledLogging/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/coldhighsun/ThrottledLogging/actions)&nbsp;[![NuGet Version](https://img.shields.io/nuget/v/ThrottledLogging.svg?style=flat)](https://www.nuget.org/packages/ThrottledLogging/)&nbsp;[![NuGet Downloads](https://img.shields.io/nuget/dt/ThrottledLogging.svg)](https://www.nuget.org/packages/ThrottledLogging/)
+# ThrottledLogger&nbsp;[![NuGet Version](https://img.shields.io/nuget/v/ThrottledLogging.svg?style=flat)](https://www.nuget.org/packages/ThrottledLogging/)&nbsp;[![NuGet Downloads](https://img.shields.io/nuget/dt/ThrottledLogging.svg)](https://www.nuget.org/packages/ThrottledLogging/)
 
 A time-interval-based log throttler for `Microsoft.Extensions.Logging` that suppresses repeated log entries per key and reports the suppressed count when logging resumes.
 
@@ -8,6 +8,12 @@ A time-interval-based log throttler for `Microsoft.Extensions.Logging` that supp
 |---|---|
 | `src/ThrottledLogging` | NuGet library |
 | `examples/GettingStarted` | Console demo covering all features |
+
+## Installation
+
+```
+dotnet add package ThrottledLogger
+```
 
 ## Usage
 
@@ -85,6 +91,12 @@ dotnet pack
 |---|---|
 | `src/ThrottledLogging` | NuGet 库 |
 | `examples/GettingStarted` | 控制台示例，涵盖所有功能 |
+
+## 安装
+
+```
+dotnet add package ThrottledLogger
+```
 
 ## 用法
 
