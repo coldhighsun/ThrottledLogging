@@ -115,12 +115,12 @@ public class ThrottledLoggerExtensionsTests
     public void LogThrottled_NullTemplate_AppendsSuppressedCount()
     {
         var logger = new FakeLogger();
-        var interval = TimeSpan.FromMilliseconds(20);
+        var interval = TimeSpan.FromMilliseconds(1000);
 
         logger.LogInformationThrottled("key", interval, null);
         logger.LogInformationThrottled("key", interval, null); // suppressed (1)
 
-        Thread.Sleep(50);
+        Thread.Sleep(2000);
         logger.LogInformationThrottled("key", interval, null);
 
         Assert.Equal(2, logger.Entries.Count);
