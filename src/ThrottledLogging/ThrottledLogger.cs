@@ -21,12 +21,12 @@ public class ThrottledLogger
     /// <summary>
     /// Represents the timer used to schedule periodic cleanup operations.
     /// </summary>
-    private static readonly Timer _cleanupTimer;
+    private static readonly Timer CleanupTimer;
 
     /// <summary>
     /// A thread-safe mapping of <see cref="ILogger"/> instances to their corresponding <see cref="ThrottledLogger"/> instances,
     /// </summary>
-    private static readonly ConditionalWeakTable<ILogger, ThrottledLogger> _instances = [];
+    private static readonly ConditionalWeakTable<ILogger, ThrottledLogger> Instances = [];
 
     /// <summary>
     /// The age threshold (in stopwatch ticks) after which a log entry is considered expired and eligible for cleanup.
@@ -46,7 +46,7 @@ public class ThrottledLogger
         var defaultCleanupPeriod = TimeSpan.FromHours(1);
 
         _expiryTick = defaultCleanupPeriod.Ticks;
-        _cleanupTimer = new(OnCleanupTimer, null, defaultCleanupPeriod, defaultCleanupPeriod);
+        CleanupTimer = new(OnCleanupTimer, null, defaultCleanupPeriod, defaultCleanupPeriod);
     }
 
     /// <summary>
@@ -57,7 +57,7 @@ public class ThrottledLogger
     public static void Configure(TimeSpan expiry, TimeSpan cleanupPeriod)
     {
         _expiryTick = expiry.Ticks;
-        _cleanupTimer.Change(cleanupPeriod, cleanupPeriod);
+        CleanupTimer.Change(cleanupPeriod, cleanupPeriod);
     }
 
     /// <summary>
@@ -101,14 +101,14 @@ public class ThrottledLogger
     /// creating one if it does not yet exist.
     /// </summary>
     internal static ThrottledLogger GetOrCreate(ILogger logger)
-        => _instances.GetOrCreateValue(logger);
+        => Instances.GetOrCreateValue(logger);
 
     /// <summary>
     /// Timer callback that triggers cleanup of expired entries across all registered throttler instances.
     /// </summary>
     private static void OnCleanupTimer(object? state)
     {
-        foreach (var (_, throttler) in _instances)
+        foreach (var (_, throttler) in Instances)
         {
             throttler.Cleanup();
         }
