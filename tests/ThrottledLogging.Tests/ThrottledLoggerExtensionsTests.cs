@@ -32,13 +32,13 @@ public class ThrottledLoggerExtensionsTests
     public void LogThrottled_AfterSuppression_AppendsSuppressedCount()
     {
         var logger = new FakeLogger();
-        var interval = TimeSpan.FromMilliseconds(20);
+        var interval = TimeSpan.FromMilliseconds(1000);
 
         logger.LogInformationThrottled("key", interval, "Msg"); // logged
         logger.LogInformationThrottled("key", interval, "Msg"); // suppressed (1)
         logger.LogInformationThrottled("key", interval, "Msg"); // suppressed (2)
 
-        Thread.Sleep(50);
+        Thread.Sleep(2000);
         logger.LogInformationThrottled("key", interval, "Msg"); // logged with count
 
         Assert.Equal(2, logger.Entries.Count);
