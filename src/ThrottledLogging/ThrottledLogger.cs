@@ -14,9 +14,25 @@ public class ThrottledLogger
     /// <summary>
     /// Represents a tracked log entry with its last log timestamp and the number of suppressed occurrences.
     /// </summary>
-    /// <param name="LastLogTick">The <see cref="Stopwatch"/> timestamp when the key was last logged.</param>
-    /// <param name="SuppressedCount">The number of log calls suppressed since the last successful log.</param>
-    private record struct Entry(long LastLogTick, int SuppressedCount);
+    private struct Entry
+    {
+        /// <summary>
+        /// Initializes a new instance of the <see cref="Entry"/> struct with the specified last log timestamp and suppressed count.
+        /// </summary>
+        /// <param name="lastLogTick">The <see cref="Stopwatch"/> timestamp when the key was last logged.</param>
+        /// <param name="suppressedCount">The number of log calls suppressed since the last successful log.</param>
+        public Entry(long lastLogTick, int suppressedCount)
+        {
+            LastLogTick = lastLogTick;
+            SuppressedCount = suppressedCount;
+        }
+
+        /// <summary>The <see cref="Stopwatch"/> timestamp when the key was last logged.</summary>
+        public long LastLogTick { get; }
+
+        /// <summary>The number of log calls suppressed since the last successful log.</summary>
+        public int SuppressedCount { get; }
+    }
 
     /// <summary>
     /// Represents the timer used to schedule periodic cleanup operations.
@@ -26,7 +42,7 @@ public class ThrottledLogger
     /// <summary>
     /// A thread-safe mapping of <see cref="ILogger"/> instances to their corresponding <see cref="ThrottledLogger"/> instances,
     /// </summary>
-    private static readonly ConditionalWeakTable<ILogger, ThrottledLogger> Instances = [];
+    private static readonly ConditionalWeakTable<ILogger, ThrottledLogger> Instances = new ConditionalWeakTable<ILogger, ThrottledLogger>();
 
     /// <summary>
     /// The age threshold (in stopwatch ticks) after which a log entry is considered expired and eligible for cleanup.
@@ -36,7 +52,7 @@ public class ThrottledLogger
     /// <summary>
     /// A thread-safe dictionary that tracks log keys and their associated log entry data (last log timestamp and suppressed count) for this throttler instance.
     /// </summary>
-    private readonly ConcurrentDictionary<string, Entry> _tracker = new();
+    private readonly ConcurrentDictionary<string, Entry> _tracker = new ConcurrentDictionary<string, Entry>();
 
     /// <summary>
     /// Initializes static members of the <see cref="ThrottledLogger"/> class, setting up the default cleanup period and starting the background timer for cleanup of expired entries.
@@ -82,17 +98,14 @@ public class ThrottledLogger
         {
             if (tick - entry.LastLogTick < interval.Ticks)
             {
-                _tracker[key] = entry with
-                {
-                    SuppressedCount = entry.SuppressedCount + 1
-                };
+                _tracker[key] = new Entry(entry.LastLogTick, entry.SuppressedCount + 1);
                 suppressedCount = 0;
                 return false;
             }
         }
 
         suppressedCount = _tracker.TryGetValue(key, out var prev) ? prev.SuppressedCount : 0;
-        _tracker[key] = new(tick, 0);
+        _tracker[key] = new Entry(tick, 0);
         return true;
     }
 
@@ -108,10 +121,12 @@ public class ThrottledLogger
     /// </summary>
     private static void OnCleanupTimer(object? state)
     {
+#if !NETSTANDARD2_0
         foreach (var (_, throttler) in Instances)
         {
             throttler.Cleanup();
         }
+#endif
     }
 
     /// <summary>

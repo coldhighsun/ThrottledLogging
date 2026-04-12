@@ -1,9 +1,11 @@
 <Project>
     <PropertyGroup>
-        <TargetFrameworks>net9.0;net10.0</TargetFrameworks>
+        <TargetFrameworks Condition="'$(MSBuildProjectName)' == 'ThrottledLogging'">netstandard2.0;net8.0;net9.0;net10.0</TargetFrameworks>
+        <TargetFrameworks Condition="'$(MSBuildProjectName)' != 'ThrottledLogging'">net8.0;net9.0;net10.0</TargetFrameworks>
         <ArtifactsPath>$(MSBuildThisFileDirectory)artifacts</ArtifactsPath>
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
+        <LangVersion>latest</LangVersion>
         <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
         <WarningsAsErrors>true</WarningsAsErrors>
         <GenerateDocumentationFile>True</GenerateDocumentationFile>
