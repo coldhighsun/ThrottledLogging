@@ -34,7 +34,8 @@ Available methods mirror the standard `ILogger` API:
 - `LogErrorThrottled`
 - `LogCriticalThrottled`
 
-Each method signature is `(string key, TimeSpan interval, string? messageTemplate, params ReadOnlySpan<object?> args)`.
+Each method signature is `(string key, TimeSpan interval, string? messageTemplate, params object?[] args)`.
+On .NET 9+, the `args` parameter uses `params ReadOnlySpan<object?>` for improved performance.
 
 ### Suppressed count
 
@@ -69,7 +70,9 @@ ThrottledLogger.Configure(expiry: TimeSpan.FromMinutes(30), cleanupPeriod: TimeS
 
 ## Requirements
 
-- .NET 9 or .NET 10
+- .NET Standard 2.0, .NET 8, .NET 9, or .NET 10
+
+> **Note:** On .NET Standard 2.0 targets, the background cleanup timer that removes idle entries is disabled. Entries are still released when the associated `ILogger` is garbage-collected.
 
 ## Build
 
@@ -117,7 +120,8 @@ logger.LogWarningThrottled("disk-full", TimeSpan.FromMinutes(1), "Disk usage is 
 - `LogErrorThrottled`
 - `LogCriticalThrottled`
 
-每个方法的签名为 `(string key, TimeSpan interval, string? messageTemplate, params ReadOnlySpan<object?> args)`。
+每个方法的签名为 `(string key, TimeSpan interval, string? messageTemplate, params object?[] args)`。
+在 .NET 9+ 上，`args` 参数使用 `params ReadOnlySpan<object?>` 以获得更好的性能。
 
 ### 抑制计数
 
@@ -152,7 +156,9 @@ ThrottledLogger.Configure(expiry: TimeSpan.FromMinutes(30), cleanupPeriod: TimeS
 
 ## 环境要求
 
-- .NET 9 或 .NET 10
+- .NET Standard 2.0、.NET 8、.NET 9 或 .NET 10
+
+> **注意：** 在 .NET Standard 2.0 目标上，用于移除空闲条目的后台清理定时器已被禁用。当关联的 `ILogger` 被垃圾回收时，相关条目仍会被释放。
 
 ## 构建
 

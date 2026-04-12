@@ -16,7 +16,7 @@ public static class ThrottledLoggerExtensions
     /// <summary>
     /// Caches message templates with the suppressed count placeholder to avoid repeated string concatenation for the same template.
     /// </summary>
-    private static readonly ConcurrentDictionary<string, string> SuppressedTemplateCache = new();
+    private static readonly ConcurrentDictionary<string, string> SuppressedTemplateCache = new ConcurrentDictionary<string, string>();
 
     /// <summary>
     /// Writes a throttled critical log message.
@@ -31,7 +31,11 @@ public static class ThrottledLoggerExtensions
         string key,
         TimeSpan interval,
         string? messageTemplate,
+#if NET9_0_OR_GREATER
         params ReadOnlySpan<object?> args)
+#else
+        params object?[] args)
+#endif
         => LogThrottled(logger, LogLevel.Critical, key, interval, messageTemplate, args);
 
     /// <summary>
@@ -47,7 +51,11 @@ public static class ThrottledLoggerExtensions
         string key,
         TimeSpan interval,
         string? messageTemplate,
+#if NET9_0_OR_GREATER
         params ReadOnlySpan<object?> args)
+#else
+        params object?[] args)
+#endif
         => LogThrottled(logger, LogLevel.Debug, key, interval, messageTemplate, args);
 
     /// <summary>
@@ -63,7 +71,11 @@ public static class ThrottledLoggerExtensions
         string key,
         TimeSpan interval,
         string? messageTemplate,
+#if NET9_0_OR_GREATER
         params ReadOnlySpan<object?> args)
+#else
+        params object?[] args)
+#endif
         => LogThrottled(logger, LogLevel.Error, key, interval, messageTemplate, args);
 
     /// <summary>
@@ -79,7 +91,11 @@ public static class ThrottledLoggerExtensions
         string key,
         TimeSpan interval,
         string? messageTemplate,
+#if NET9_0_OR_GREATER
         params ReadOnlySpan<object?> args)
+#else
+        params object?[] args)
+#endif
         => LogThrottled(logger, LogLevel.Information, key, interval, messageTemplate, args);
 
     /// <summary>
@@ -95,7 +111,11 @@ public static class ThrottledLoggerExtensions
         string key,
         TimeSpan interval,
         string? messageTemplate,
+#if NET9_0_OR_GREATER
         params ReadOnlySpan<object?> args)
+#else
+        params object?[] args)
+#endif
         => LogThrottled(logger, LogLevel.Trace, key, interval, messageTemplate, args);
 
     /// <summary>
@@ -111,7 +131,11 @@ public static class ThrottledLoggerExtensions
         string key,
         TimeSpan interval,
         string? messageTemplate,
+#if NET9_0_OR_GREATER
         params ReadOnlySpan<object?> args)
+#else
+        params object?[] args)
+#endif
         => LogThrottled(logger, LogLevel.Warning, key, interval, messageTemplate, args);
 
     /// <summary>
@@ -120,10 +144,20 @@ public static class ThrottledLoggerExtensions
     /// <param name="args">The original logging arguments.</param>
     /// <param name="suppressed">The number of suppressed messages.</param>
     /// <returns>A new array containing the original arguments followed by the suppressed count.</returns>
-    private static object?[] AppendSuppressed(ReadOnlySpan<object?> args, int suppressed)
+    private static object?[] AppendSuppressed(
+#if NET9_0_OR_GREATER
+        ReadOnlySpan<object?> args,
+#else
+        object?[] args,
+#endif
+        int suppressed)
     {
         var combined = new object?[args.Length + 1];
+#if NET9_0_OR_GREATER
         args.CopyTo(combined);
+#else
+        Array.Copy(args, combined, args.Length);
+#endif
         combined[args.Length] = suppressed;
         return combined;
     }
@@ -147,7 +181,7 @@ public static class ThrottledLoggerExtensions
     private static string GetSuppressedTemplate(string? messageTemplate)
         => messageTemplate is null
             ? SuppressedSuffix
-            : SuppressedTemplateCache.GetOrAdd(messageTemplate, static (t, s) => string.Concat(t, s), SuppressedSuffix);
+            : SuppressedTemplateCache.GetOrAdd(messageTemplate, t => string.Concat(t, SuppressedSuffix));
 
     /// <summary>
     /// Writes a log entry only when the throttling policy allows it.
@@ -164,7 +198,11 @@ public static class ThrottledLoggerExtensions
         string key,
         TimeSpan interval,
         string? messageTemplate,
+#if NET9_0_OR_GREATER
         ReadOnlySpan<object?> args)
+#else
+        object?[] args)
+#endif
     {
         if (!logger.IsEnabled(level))
         {
@@ -178,7 +216,11 @@ public static class ThrottledLoggerExtensions
 
         if (suppressed <= 0)
         {
+#if NET9_0_OR_GREATER
             logger.Log(level, messageTemplate, args.ToArray());
+#else
+            logger.Log(level, messageTemplate, args);
+#endif
             return;
         }
 
