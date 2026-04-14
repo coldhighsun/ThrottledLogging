@@ -1,4 +1,8 @@
-# ThrottledLogger&nbsp;[![NuGet Version](https://img.shields.io/nuget/v/ThrottledLogging.svg?style=flat)](https://www.nuget.org/packages/ThrottledLogging/)&nbsp;[![NuGet Downloads](https://img.shields.io/nuget/dt/ThrottledLogging.svg)](https://www.nuget.org/packages/ThrottledLogging/)
+# ThrottledLogger
+
+[![CI](https://github.com/coldhighsun/ThrottledLogging/actions/workflows/ci.yml/badge.svg)](https://github.com/coldhighsun/ThrottledLogging/actions/workflows/ci.yml)
+[![NuGet Version](https://img.shields.io/nuget/v/ThrottledLogging)](https://www.nuget.org/packages/ThrottledLogging)
+[![NuGet Downloads](https://img.shields.io/nuget/dt/ThrottledLogging)](https://www.nuget.org/packages/ThrottledLogging)
 
 A time-interval-based log throttler for `Microsoft.Extensions.Logging` that suppresses repeated log entries per key and reports the suppressed count when logging resumes.
 
