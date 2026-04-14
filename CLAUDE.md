@@ -18,7 +18,7 @@ dotnet test --filter "FullyQualifiedName~TestMethodName"
 dotnet pack
 ```
 
-Targets both `net9.0` and `net10.0`. Build artifacts go to `artifacts/` (configured via `Directory.Build.props`).
+The library targets `netstandard2.0;net8.0;net9.0;net10.0`; tests and examples target `net8.0;net9.0;net10.0`. Build artifacts go to `artifacts/` (configured via `Directory.Build.props`).
 
 ## Architecture
 
