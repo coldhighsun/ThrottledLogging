@@ -1,4 +1,4 @@
-# ThrottledLogger
+# ThrottledLogging
 
 [![CI](https://github.com/coldhighsun/ThrottledLogging/actions/workflows/ci.yml/badge.svg)](https://github.com/coldhighsun/ThrottledLogging/actions/workflows/ci.yml)
 [![NuGet Version](https://img.shields.io/nuget/v/ThrottledLogging)](https://www.nuget.org/packages/ThrottledLogging)
@@ -16,7 +16,7 @@ A time-interval-based log throttler for `Microsoft.Extensions.Logging` that supp
 ## Installation
 
 ```
-dotnet add package ThrottledLogger
+dotnet add package ThrottledLogging
 ```
 
 ## Usage
@@ -88,7 +88,7 @@ dotnet pack
 
 ---
 
-# ThrottledLogger（中文）
+# ThrottledLogging（中文）
 
 基于时间间隔的 `Microsoft.Extensions.Logging` 日志限流器，可按 key 抑制重复日志，并在恢复输出时报告被抑制的条数。
 
@@ -102,7 +102,7 @@ dotnet pack
 ## 安装
 
 ```
-dotnet add package ThrottledLogger
+dotnet add package ThrottledLogging
 ```
 
 ## 用法
