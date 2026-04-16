@@ -6,7 +6,6 @@
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
         <LangVersion>latest</LangVersion>
-        <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
         <WarningsAsErrors>true</WarningsAsErrors>
         <GenerateDocumentationFile>True</GenerateDocumentationFile>
     </PropertyGroup>
