@@ -1,5 +1,6 @@
 using Microsoft.Extensions.Logging;
 using System.Collections.Concurrent;
+using ThrottledLogging.Resources;
 
 namespace ThrottledLogging;
 
@@ -8,11 +9,6 @@ namespace ThrottledLogging;
 /// </summary>
 public static class ThrottledLoggerExtensions
 {
-    /// <summary>
-    /// Represents the suffix appended to a message when suppressed messages are present.
-    /// </summary>
-    private const string SuppressedSuffix = " ({SuppressedCount} messages suppressed)";
-
     /// <summary>
     /// Caches message templates with the suppressed count placeholder to avoid repeated string concatenation for the same template.
     /// </summary>
@@ -180,8 +176,8 @@ public static class ThrottledLoggerExtensions
     /// </returns>
     private static string GetSuppressedTemplate(string? messageTemplate)
         => messageTemplate is null
-            ? SuppressedSuffix
-            : SuppressedTemplateCache.GetOrAdd(messageTemplate, t => string.Concat(t, SuppressedSuffix));
+            ? Messages.SuppressedSuffix
+            : SuppressedTemplateCache.GetOrAdd(messageTemplate, t => string.Concat(t, Messages.SuppressedSuffix));
 
     /// <summary>
     /// Writes a log entry only when the throttling policy allows it.
