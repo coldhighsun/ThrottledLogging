@@ -39,7 +39,6 @@ Available methods mirror the standard `ILogger` API:
 - `LogCriticalThrottled`
 
 Each method signature is `(string key, TimeSpan interval, string? messageTemplate, params object?[] args)`.
-On .NET 9+, the `args` parameter uses `params ReadOnlySpan<object?>` for improved performance.
 
 ### Suppressed count
 
@@ -80,9 +79,12 @@ ThrottledLogger.Configure(expiry: TimeSpan.FromMinutes(30), cleanupPeriod: TimeS
 
 ## Requirements
 
-- .NET Standard 2.0, .NET 8, .NET 9, or .NET 10
-
-> **Note:** On .NET Standard 2.0 targets, the background cleanup timer that removes idle entries is disabled. Entries are still released when the associated `ILogger` is garbage-collected.
+| Target Framework | Notes |
+|---|---|
+| .NET Standard 2.0 | Background cleanup timer disabled; idle entries are released when the `ILogger` is GC'd |
+| .NET 8 | Full support |
+| .NET 9 | Full support; `args` uses `params ReadOnlySpan<object?>` for reduced allocations |
+| .NET 10 | Full support; `args` uses `params ReadOnlySpan<object?>` for reduced allocations |
 
 ## Build
 
@@ -131,7 +133,6 @@ logger.LogWarningThrottled("disk-full", TimeSpan.FromMinutes(1), "Disk usage is 
 - `LogCriticalThrottled`
 
 每个方法的签名为 `(string key, TimeSpan interval, string? messageTemplate, params object?[] args)`。
-在 .NET 9+ 上，`args` 参数使用 `params ReadOnlySpan<object?>` 以获得更好的性能。
 
 ### 抑制计数
 
@@ -166,9 +167,12 @@ ThrottledLogger.Configure(expiry: TimeSpan.FromMinutes(30), cleanupPeriod: TimeS
 
 ## 环境要求
 
-- .NET Standard 2.0、.NET 8、.NET 9 或 .NET 10
-
-> **注意：** 在 .NET Standard 2.0 目标上，用于移除空闲条目的后台清理定时器已被禁用。当关联的 `ILogger` 被垃圾回收时，相关条目仍会被释放。
+| 目标框架 | 说明 |
+|---|---|
+| .NET Standard 2.0 | 后台清理定时器已禁用；当关联的 `ILogger` 被垃圾回收时，相关条目仍会被释放 |
+| .NET 8 | 完整支持 |
+| .NET 9 | 完整支持；`args` 使用 `params ReadOnlySpan<object?>` 以减少内存分配 |
+| .NET 10 | 完整支持；`args` 使用 `params ReadOnlySpan<object?>` 以减少内存分配 |
 
 ## 构建
 
