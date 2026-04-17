@@ -49,6 +49,12 @@ When a throttled message is allowed through after one or more suppressions, the 
 Disk usage is above 95% (3 messages suppressed)
 ```
 
+The suffix is localized. On a `zh-CN` system the output is:
+
+```
+Disk usage is above 95% (3个消息被隐藏)
+```
+
 ### Multiple independent keys
 
 Each key has its own throttle budget — different keys do not share a counter:
@@ -129,10 +135,10 @@ logger.LogWarningThrottled("disk-full", TimeSpan.FromMinutes(1), "Disk usage is 
 
 ### 抑制计数
 
-当某条被限流的消息在经历一次或多次抑制后重新允许输出时，抑制次数会自动追加到消息末尾：
+当某条被限流的消息在经历一次或多次抑制后重新允许输出时，抑制次数会自动追加到消息末尾。追加的后缀已本地化，在 `zh-CN` 环境下输出为：
 
 ```
-Disk usage is above 95% (3 messages suppressed)
+Disk usage is above 95% (3个消息被隐藏)
 ```
 
 ### 多个独立 key

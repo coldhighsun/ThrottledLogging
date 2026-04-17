@@ -34,7 +34,7 @@ The library has two source files:
 - `ConditionalWeakTable` means no explicit registration/disposal — throttlers are created on demand and cleaned up when the `ILogger` is GC'd.
 - `ThrottledLogger` also has a `public` constructor, used directly in unit tests to exercise `ShouldLog` without involving the static `_instances` table.
 - `ThrottledLogger.Configure(expiry, cleanupPeriod)` is a global static setting affecting all instances. Tests that rely on timing should avoid calling it, or restore defaults afterwards.
-- `interval.Ticks` is compared directly against `Stopwatch` ticks — this works because `TimeSpan.Ticks` and `Stopwatch` ticks are both 100 ns on .NET (they share the same tick frequency).
+- `interval.Ticks` is compared directly against `Stopwatch.GetTimestamp()` — this relies on `Stopwatch.Frequency` equalling `TimeSpan.TicksPerSecond` (10,000,000), which holds on all current .NET platforms (Windows/Linux/macOS) but is not a documented guarantee. If ever ported to a platform where `Stopwatch.IsHighResolution` is false or the frequency differs, this comparison will silently produce wrong throttle intervals.
 - Version is managed by [MinVer](https://github.com/adamralph/minver) from git tags (prefix `v`).
 - Central package management via `Directory.Packages.props`.
 - `WarningsAsErrors` is enabled globally.
