@@ -1,4 +1,6 @@
+using System.Globalization;
 using Microsoft.Extensions.Logging;
+using ThrottledLogging.Resources;
 using Xunit;
 
 namespace ThrottledLogging.Tests;
@@ -31,18 +33,26 @@ public class ThrottledLoggerExtensionsTests
     [Fact]
     public void LogThrottled_AfterSuppression_AppendsSuppressedCount()
     {
-        var logger = new FakeLogger();
-        var interval = TimeSpan.FromMilliseconds(1000);
+        Messages.Culture = CultureInfo.InvariantCulture;
+        try
+        {
+            var logger = new FakeLogger();
+            var interval = TimeSpan.FromMilliseconds(1000);
 
-        logger.LogInformationThrottled("key", interval, "Msg"); // logged
-        logger.LogInformationThrottled("key", interval, "Msg"); // suppressed (1)
-        logger.LogInformationThrottled("key", interval, "Msg"); // suppressed (2)
+            logger.LogInformationThrottled("key", interval, "Msg"); // logged
+            logger.LogInformationThrottled("key", interval, "Msg"); // suppressed (1)
+            logger.LogInformationThrottled("key", interval, "Msg"); // suppressed (2)
 
-        Thread.Sleep(2000);
-        logger.LogInformationThrottled("key", interval, "Msg"); // logged with count
+            Thread.Sleep(2000);
+            logger.LogInformationThrottled("key", interval, "Msg"); // logged with count
 
-        Assert.Equal(2, logger.Entries.Count);
-        Assert.Contains("2 messages suppressed", logger.Entries[1].Message);
+            Assert.Equal(2, logger.Entries.Count);
+            Assert.Contains("2 messages suppressed", logger.Entries[1].Message);
+        }
+        finally
+        {
+            Messages.Culture = null;
+        }
     }
 
     [Theory]
@@ -114,16 +124,24 @@ public class ThrottledLoggerExtensionsTests
     [Fact]
     public void LogThrottled_NullTemplate_AppendsSuppressedCount()
     {
-        var logger = new FakeLogger();
-        var interval = TimeSpan.FromMilliseconds(1000);
+        Messages.Culture = CultureInfo.InvariantCulture;
+        try
+        {
+            var logger = new FakeLogger();
+            var interval = TimeSpan.FromMilliseconds(1000);
 
-        logger.LogInformationThrottled("key", interval, null);
-        logger.LogInformationThrottled("key", interval, null); // suppressed (1)
+            logger.LogInformationThrottled("key", interval, null);
+            logger.LogInformationThrottled("key", interval, null); // suppressed (1)
 
-        Thread.Sleep(2000);
-        logger.LogInformationThrottled("key", interval, null);
+            Thread.Sleep(2000);
+            logger.LogInformationThrottled("key", interval, null);
 
-        Assert.Equal(2, logger.Entries.Count);
-        Assert.Contains("1 messages suppressed", logger.Entries[1].Message);
+            Assert.Equal(2, logger.Entries.Count);
+            Assert.Contains("1 messages suppressed", logger.Entries[1].Message);
+        }
+        finally
+        {
+            Messages.Culture = null;
+        }
     }
 }
