@@ -24,11 +24,13 @@ The library targets `netstandard2.0;net8.0;net9.0;net10.0`; tests and examples t
 
 Solution layout: `src/ThrottledLogging/` (library), `tests/ThrottledLogging.Tests/` (xUnit), `examples/GettingStarted/` (console sample).
 
-The library has two source files:
+The library has two source files plus a localized resources directory:
 
-- **`ThrottledLogger.cs`** — Core throttling engine (`public class ThrottledLogger` in namespace `ThrottledLogging`). Uses a `ConditionalWeakTable<ILogger, ThrottledLogger>` to associate one throttler instance per `ILogger` (instances are GC-friendly, tied to the logger's lifetime). Each instance holds a `ConcurrentDictionary<string, Entry>` mapping throttle keys to `(LastLogTick, SuppressedCount)` records. A single static `Timer` periodically cleans up entries idle longer than the configured expiry (default: 1 hour). Timestamps use `Stopwatch.GetTimestamp()` / ticks for high-resolution, allocation-free timing.
+- **`ThrottledLogger.cs`** — Core throttling engine (`public class ThrottledLogger` in namespace `ThrottledLogging`). Uses a `ConditionalWeakTable<ILogger, ThrottledLogger>` to associate one throttler instance per `ILogger` (instances are GC-friendly, tied to the logger's lifetime). Each instance holds a `ConcurrentDictionary<string, Entry>` mapping throttle keys to `(LastLogTick, SuppressedCount)` records. A single static `Timer` periodically cleans up entries idle longer than the configured expiry (default: 1 hour). Timestamps use `Stopwatch.GetTimestamp()` / ticks for high-resolution, allocation-free timing. **The cleanup callback is a no-op on `netstandard2.0`** (`#if !NETSTANDARD2_0`) because `ConditionalWeakTable` does not support enumeration on that target.
 
-- **`ThrottledLoggerExtensions.cs`** — Extension methods on `ILogger` (`LogTraceThrottled`, `LogDebugThrottled`, `LogInformationThrottled`, `LogWarningThrottled`, `LogErrorThrottled`, `LogCriticalThrottled`). Each takes `(string key, TimeSpan interval, ...)` before the standard message/args parameters. When a log is suppressed, the count is incremented. When logging resumes, the suppressed count is appended to the message template as `" ({SuppressedCount} messages suppressed)"`. A `ConcurrentDictionary` caches the concatenated suppressed templates to avoid repeated string allocations.
+- **`ThrottledLoggerExtensions.cs`** — Extension methods on `ILogger` (`LogTraceThrottled`, `LogDebugThrottled`, `LogInformationThrottled`, `LogWarningThrottled`, `LogErrorThrottled`, `LogCriticalThrottled`). Each takes `(string key, TimeSpan interval, ...)` before the standard message/args parameters. When a log is suppressed, the count is incremented. When logging resumes, the suppressed count is appended to the message template as `" ({SuppressedCount} messages suppressed)"`. A `ConcurrentDictionary` caches the concatenated suppressed templates to avoid repeated string allocations. All extension methods use `params ReadOnlySpan<object?>` on `NET9_0_OR_GREATER` and `params object?[]` on older targets — this `#if` split appears throughout the file.
+
+- **`Resources/`** — `Messages.resx` (default/English) and `Messages.zh-CN.resx` (Simplified Chinese) hold the localizable suppressed-count suffix string. `Messages.Designer.cs` is auto-generated; edit the `.resx` files to change or add translations.
 
 **Key design decisions:**
 - `ConditionalWeakTable` means no explicit registration/disposal — throttlers are created on demand and cleaned up when the `ILogger` is GC'd.
@@ -42,3 +44,7 @@ The library has two source files:
 ## Tests
 
 `FakeLogger` (`tests/.../FakeLogger.cs`) is a minimal `ILogger` that records `(LogLevel, Message)` entries and supports a configurable `MinLevel`. Use it in tests that need to assert on emitted messages or log levels.
+
+When asserting on suppressed-count message strings (e.g. `"(3 messages suppressed)"`), use `InvariantCulture` or hardcode the English suffix — the suffix is localized and will differ on zh-CN systems.
+
+To force a throttle to allow without sleeping, pass `TimeSpan.Zero` as the interval — `ShouldLog` always returns `true` for a zero interval and reports the accumulated suppressed count.

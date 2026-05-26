@@ -1,9 +1,33 @@
+using Microsoft.Extensions.Logging;
 using Xunit;
 
 namespace ThrottledLogging.Tests;
 
+[Collection("Sequential")]
 public class ThrottledLoggerTests
 {
+    [Fact]
+    public void Configure_ShorterExpiry_CausesCleanupToRemoveEntries()
+    {
+        ThrottledLogger.Configure(expiry: TimeSpan.FromMilliseconds(1), cleanupPeriod: TimeSpan.FromMilliseconds(50));
+        try
+        {
+            var logger = new FakeLogger();
+            logger.LogInformationThrottled("key", TimeSpan.FromDays(1), "Msg"); // entry created, throttled
+
+            Thread.Sleep(200); // wait for cleanup to run and expire the entry
+
+            // After expiry the entry is gone, so the next call should be allowed as a fresh first call
+            logger.LogInformationThrottled("key", TimeSpan.FromDays(1), "Msg");
+
+            Assert.Equal(2, logger.Entries.Count);
+        }
+        finally
+        {
+            ThrottledLogger.Configure(expiry: TimeSpan.FromHours(1), cleanupPeriod: TimeSpan.FromHours(1));
+        }
+    }
+
     [Fact]
     public void ShouldLog_AfterIntervalExpires_ReturnsTrue()
     {
