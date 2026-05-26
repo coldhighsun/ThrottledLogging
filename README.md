@@ -3,6 +3,7 @@
 [![CI](https://github.com/coldhighsun/ThrottledLogging/actions/workflows/ci.yml/badge.svg)](https://github.com/coldhighsun/ThrottledLogging/actions/workflows/ci.yml)
 [![NuGet Version](https://img.shields.io/nuget/v/ThrottledLogging)](https://www.nuget.org/packages/ThrottledLogging)
 [![NuGet Downloads](https://img.shields.io/nuget/dt/ThrottledLogging)](https://www.nuget.org/packages/ThrottledLogging)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
 A time-interval-based log throttler for `Microsoft.Extensions.Logging` that suppresses repeated log entries per key and reports the suppressed count when logging resumes.
 
@@ -38,7 +39,7 @@ Available methods mirror the standard `ILogger` API:
 - `LogErrorThrottled`
 - `LogCriticalThrottled`
 
-Each method signature is `(string key, TimeSpan interval, string? messageTemplate, params object?[] args)`.
+Each method signature is `(string key, TimeSpan interval, string? messageTemplate, params object?[] args)` — on .NET 9 and later `args` uses `params ReadOnlySpan<object?>` for reduced allocations.
 
 ### Suppressed count
 
@@ -100,6 +101,11 @@ dotnet pack
 
 基于时间间隔的 `Microsoft.Extensions.Logging` 日志限流器，可按 key 抑制重复日志，并在恢复输出时报告被抑制的条数。
 
+[![CI](https://github.com/coldhighsun/ThrottledLogging/actions/workflows/ci.yml/badge.svg)](https://github.com/coldhighsun/ThrottledLogging/actions/workflows/ci.yml)
+[![NuGet Version](https://img.shields.io/nuget/v/ThrottledLogging)](https://www.nuget.org/packages/ThrottledLogging)
+[![NuGet Downloads](https://img.shields.io/nuget/dt/ThrottledLogging)](https://www.nuget.org/packages/ThrottledLogging)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+
 ## 项目结构
 
 | 项目 | 说明 |
@@ -132,7 +138,7 @@ logger.LogWarningThrottled("disk-full", TimeSpan.FromMinutes(1), "Disk usage is 
 - `LogErrorThrottled`
 - `LogCriticalThrottled`
 
-每个方法的签名为 `(string key, TimeSpan interval, string? messageTemplate, params object?[] args)`。
+每个方法的签名为 `(string key, TimeSpan interval, string? messageTemplate, params object?[] args)`，在 .NET 9 及更高版本上 `args` 改用 `params ReadOnlySpan<object?>` 以减少内存分配。
 
 ### 抑制计数
 

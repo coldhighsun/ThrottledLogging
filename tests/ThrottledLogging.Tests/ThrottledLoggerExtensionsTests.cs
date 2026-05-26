@@ -5,6 +5,7 @@ using Xunit;
 
 namespace ThrottledLogging.Tests;
 
+[Collection("Sequential")]
 public class ThrottledLoggerExtensionsTests
 {
     [Fact]
@@ -109,6 +110,21 @@ public class ThrottledLoggerExtensionsTests
 
         Assert.Single(logger1.Entries);
         Assert.Single(logger2.Entries);
+    }
+
+    [Fact]
+    public void LogThrottled_DisabledLogLevel_DoesNotConsumeThrottleQuota()
+    {
+        // Calls that are filtered by IsEnabled should not advance the throttle state,
+        // so re-enabling the level should allow the next call through without suppression.
+        var logger = new FakeLogger { MinLevel = LogLevel.Warning };
+
+        logger.LogInformationThrottled("key", TimeSpan.FromDays(1), "Msg"); // filtered, quota untouched
+
+        logger.MinLevel = LogLevel.Trace;
+        logger.LogInformationThrottled("key", TimeSpan.FromDays(1), "Msg"); // should be allowed (first real call)
+
+        Assert.Single(logger.Entries);
     }
 
     [Fact]
