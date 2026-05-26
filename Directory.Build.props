@@ -10,8 +10,8 @@
         <GenerateDocumentationFile>True</GenerateDocumentationFile>
     </PropertyGroup>
 
-    <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|AnyCPU'">
-        <DebugType>none</DebugType>
+    <PropertyGroup Condition="'$(Configuration)' == 'Release'">
+        <DebugType>portable</DebugType>
+        <DebugSymbols>true</DebugSymbols>
     </PropertyGroup>
-
 </Project>
