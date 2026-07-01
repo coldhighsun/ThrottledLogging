@@ -27,11 +27,21 @@ public class ThrottledLogger
             SuppressedCount = suppressedCount;
         }
 
-        /// <summary>The <see cref="Stopwatch"/> timestamp when the key was last logged.</summary>
-        public long LastLogTick { get; }
+        /// <summary>
+        /// The <see cref="Stopwatch"/> timestamp when the key was last logged.
+        /// </summary>
+        public long LastLogTick
+        {
+            get;
+        }
 
-        /// <summary>The number of log calls suppressed since the last successful log.</summary>
-        public int SuppressedCount { get; }
+        /// <summary>
+        /// The number of log calls suppressed since the last successful log.
+        /// </summary>
+        public int SuppressedCount
+        {
+            get;
+        }
     }
 
     /// <summary>
@@ -42,7 +52,7 @@ public class ThrottledLogger
     /// <summary>
     /// A thread-safe mapping of <see cref="ILogger"/> instances to their corresponding <see cref="ThrottledLogger"/> instances,
     /// </summary>
-    private static readonly ConditionalWeakTable<ILogger, ThrottledLogger> Instances = new ConditionalWeakTable<ILogger, ThrottledLogger>();
+    private static readonly ConditionalWeakTable<ILogger, ThrottledLogger> Instances = new();
 
     /// <summary>
     /// The age threshold (in stopwatch ticks) after which a log entry is considered expired and eligible for cleanup.
@@ -52,7 +62,7 @@ public class ThrottledLogger
     /// <summary>
     /// A thread-safe dictionary that tracks log keys and their associated log entry data (last log timestamp and suppressed count) for this throttler instance.
     /// </summary>
-    private readonly ConcurrentDictionary<string, Entry> _tracker = new ConcurrentDictionary<string, Entry>();
+    private readonly ConcurrentDictionary<string, Entry> _tracker = new();
 
     /// <summary>
     /// Initializes static members of the <see cref="ThrottledLogger"/> class, setting up the default cleanup period and starting the background timer for cleanup of expired entries.

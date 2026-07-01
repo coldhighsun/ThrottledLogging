@@ -1,17 +1,10 @@
 <Project>
     <PropertyGroup>
-        <TargetFrameworks Condition="'$(MSBuildProjectName)' == 'ThrottledLogging'">netstandard2.0;net8.0;net9.0;net10.0</TargetFrameworks>
-        <TargetFrameworks Condition="'$(MSBuildProjectName)' != 'ThrottledLogging'">net8.0;net9.0;net10.0</TargetFrameworks>
-        <ArtifactsPath>$(MSBuildThisFileDirectory)artifacts</ArtifactsPath>
+        <UseArtifactsOutput>true</UseArtifactsOutput>
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
         <LangVersion>latest</LangVersion>
-        <WarningsAsErrors>true</WarningsAsErrors>
-        <GenerateDocumentationFile>True</GenerateDocumentationFile>
-    </PropertyGroup>
-
-    <PropertyGroup Condition="'$(Configuration)' == 'Release'">
-        <DebugType>portable</DebugType>
-        <DebugSymbols>true</DebugSymbols>
+        <WarningsAsErrors>true</WarningsAsErrors>        
+        <DebugType>embedded</DebugType>
     </PropertyGroup>
 </Project>

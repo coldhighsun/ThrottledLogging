@@ -12,7 +12,7 @@ public static class ThrottledLoggerExtensions
     /// <summary>
     /// Caches message templates with the suppressed count placeholder to avoid repeated string concatenation for the same template.
     /// </summary>
-    private static readonly ConcurrentDictionary<string, string> SuppressedTemplateCache = new ConcurrentDictionary<string, string>();
+    private static readonly ConcurrentDictionary<string, string> SuppressedTemplateCache = new();
 
     /// <summary>
     /// Writes a throttled critical log message.
