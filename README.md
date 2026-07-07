@@ -39,7 +39,7 @@ Available methods mirror the standard `ILogger` API:
 - `LogErrorThrottled`
 - `LogCriticalThrottled`
 
-Each method signature is `(string key, TimeSpan interval, string? messageTemplate, params object?[] args)` — on .NET 9 and later `args` uses `params ReadOnlySpan<object?>` for reduced allocations.
+Each method signature is `(string key, TimeSpan interval, string? messageTemplate, params object?[] args)` — on .NET 9+ `args` uses `params ReadOnlySpan<object?>` for reduced allocations.
 
 ### Suppressed count
 
@@ -83,9 +83,7 @@ ThrottledLogger.Configure(expiry: TimeSpan.FromMinutes(30), cleanupPeriod: TimeS
 | Target Framework | Notes |
 |---|---|
 | .NET Standard 2.0 | Background cleanup timer disabled; idle entries are released when the `ILogger` is GC'd |
-| .NET 8 | Full support |
-| .NET 9 | Full support; `args` uses `params ReadOnlySpan<object?>` for reduced allocations |
-| .NET 10 | Full support; `args` uses `params ReadOnlySpan<object?>` for reduced allocations |
+| .NET 9+ | Full support; `args` uses `params ReadOnlySpan<object?>` for reduced allocations |
 
 ## Build
 
@@ -138,7 +136,7 @@ logger.LogWarningThrottled("disk-full", TimeSpan.FromMinutes(1), "Disk usage is 
 - `LogErrorThrottled`
 - `LogCriticalThrottled`
 
-每个方法的签名为 `(string key, TimeSpan interval, string? messageTemplate, params object?[] args)`，在 .NET 9 及更高版本上 `args` 改用 `params ReadOnlySpan<object?>` 以减少内存分配。
+每个方法的签名为 `(string key, TimeSpan interval, string? messageTemplate, params object?[] args)`，在 .NET 9+ 上 `args` 改用 `params ReadOnlySpan<object?>` 以减少内存分配。
 
 ### 抑制计数
 
@@ -176,9 +174,7 @@ ThrottledLogger.Configure(expiry: TimeSpan.FromMinutes(30), cleanupPeriod: TimeS
 | 目标框架 | 说明 |
 |---|---|
 | .NET Standard 2.0 | 后台清理定时器已禁用；当关联的 `ILogger` 被垃圾回收时，相关条目仍会被释放 |
-| .NET 8 | 完整支持 |
-| .NET 9 | 完整支持；`args` 使用 `params ReadOnlySpan<object?>` 以减少内存分配 |
-| .NET 10 | 完整支持；`args` 使用 `params ReadOnlySpan<object?>` 以减少内存分配 |
+| .NET 9+ | 完整支持；`args` 使用 `params ReadOnlySpan<object?>` 以减少内存分配 |
 
 ## 构建
 
