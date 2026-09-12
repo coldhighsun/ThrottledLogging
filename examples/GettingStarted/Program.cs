@@ -88,4 +88,47 @@ logger.LogInformationThrottled("config-demo", TimeSpan.FromMilliseconds(200),
     "Configured with 30-minute expiry");
 
 Drain();
+Console.WriteLine();
+
+// -----------------------------------------------------------------------
+// Example 5: Logging an exception
+// Every level has an overload that accepts an Exception before the
+// message template, matching the standard ILogger pattern.
+// -----------------------------------------------------------------------
+Console.WriteLine("=== Example 5: Logging an exception ===");
+Console.WriteLine();
+
+try
+{
+    throw new InvalidOperationException("Simulated payment gateway timeout");
+}
+catch (Exception ex)
+{
+    logger.LogErrorThrottled("payment-failed", TimeSpan.FromSeconds(5), ex,
+        "Payment failed for order {OrderId}", 1234);
+}
+
+Drain();
+Console.WriteLine();
+
+// -----------------------------------------------------------------------
+// Example 6: Resetting and inspecting throttle state
+// ResetThrottle clears a key's state early; TryGetThrottledSuppressedCount
+// inspects the current suppressed count without emitting a log entry.
+// -----------------------------------------------------------------------
+Console.WriteLine("=== Example 6: Resetting and inspecting throttle state ===");
+Console.WriteLine();
+
+logger.LogWarningThrottled("reset-demo", TimeSpan.FromMinutes(1), "First call");
+logger.LogWarningThrottled("reset-demo", TimeSpan.FromMinutes(1), "Suppressed call");
+
+if (logger.TryGetThrottledSuppressedCount("reset-demo", out var suppressedCount))
+{
+    Console.WriteLine($"Currently suppressed: {suppressedCount}");
+}
+
+logger.ResetThrottle("reset-demo");
+logger.LogWarningThrottled("reset-demo", TimeSpan.FromMinutes(1), "Treated as first call again after reset");
+
+Drain();
 Console.WriteLine("Done.");
