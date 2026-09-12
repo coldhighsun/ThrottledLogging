@@ -55,9 +55,9 @@ public class ThrottledLogger
     private static readonly ConditionalWeakTable<ILogger, ThrottledLogger> Instances = new();
 
     /// <summary>
-    /// The age threshold (in stopwatch ticks) after which a log entry is considered expired and eligible for cleanup.
+    /// The age threshold, as a <see cref="TimeSpan"/>, after which a log entry is considered expired and eligible for cleanup.
     /// </summary>
-    private static long _expiryTick;
+    private static TimeSpan _expiry;
 
     /// <summary>
     /// A thread-safe dictionary that tracks log keys and their associated log entry data (last log timestamp and suppressed count) for this throttler instance.
@@ -71,7 +71,7 @@ public class ThrottledLogger
     {
         var defaultCleanupPeriod = TimeSpan.FromHours(1);
 
-        _expiryTick = defaultCleanupPeriod.Ticks;
+        _expiry = defaultCleanupPeriod;
         CleanupTimer = new(OnCleanupTimer, null, defaultCleanupPeriod, defaultCleanupPeriod);
     }
 
@@ -82,7 +82,7 @@ public class ThrottledLogger
     /// <param name="cleanupPeriod">How often the background cleanup timer runs.</param>
     public static void Configure(TimeSpan expiry, TimeSpan cleanupPeriod)
     {
-        _expiryTick = expiry.Ticks;
+        _expiry = expiry;
         CleanupTimer.Change(cleanupPeriod, cleanupPeriod);
     }
 
@@ -190,7 +190,11 @@ public class ThrottledLogger
 
         foreach (var kv in _tracker)
         {
-            if (tick - kv.Value.LastLogTick > _expiryTick)
+#if NET9_0_OR_GREATER
+            if (Stopwatch.GetElapsedTime(kv.Value.LastLogTick, tick) > _expiry)
+#else
+            if (tick - kv.Value.LastLogTick > _expiry.Ticks)
+#endif
             {
                 (expiredKeys ??= new List<string>()).Add(kv.Key);
             }

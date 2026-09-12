@@ -371,7 +371,7 @@ public static class ThrottledLoggerExtensions
         if (suppressed <= 0)
         {
 #if NET9_0_OR_GREATER
-            logger.Log(level, exception, messageTemplate, args.Length == 0 ? [] : args.ToArray());
+            logger.Log(level, exception, messageTemplate, args.ToArray());
 #else
             logger.Log(level, exception, messageTemplate, args);
 #endif
