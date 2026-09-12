@@ -160,4 +160,48 @@ public class ThrottledLoggerExtensionsTests
             Messages.Culture = null;
         }
     }
+
+    [Fact]
+    public void LogErrorThrottled_WithException_LogsMessage()
+    {
+        var logger = new FakeLogger();
+        var exception = new InvalidOperationException("boom");
+
+        logger.LogErrorThrottled("key", TimeSpan.FromMinutes(1), exception, "Failed {Name}", "world");
+
+        Assert.Single(logger.Entries);
+        Assert.Equal(LogLevel.Error, logger.Entries[0].Level);
+        Assert.Contains("world", logger.Entries[0].Message);
+    }
+
+    [Fact]
+    public void ResetThrottle_AllowsImmediateReLog()
+    {
+        var logger = new FakeLogger();
+        var interval = TimeSpan.FromDays(1);
+
+        logger.LogInformationThrottled("key", interval, "Msg"); // logged
+        logger.LogInformationThrottled("key", interval, "Msg"); // suppressed
+
+        logger.ResetThrottle("key");
+        logger.LogInformationThrottled("key", interval, "Msg"); // treated as first again
+
+        Assert.Equal(2, logger.Entries.Count);
+    }
+
+    [Fact]
+    public void TryGetThrottledSuppressedCount_TracksSuppressedCalls()
+    {
+        var logger = new FakeLogger();
+        var interval = TimeSpan.FromDays(1);
+
+        logger.LogInformationThrottled("key", interval, "Msg"); // logged
+        logger.LogInformationThrottled("key", interval, "Msg"); // suppressed (1)
+        logger.LogInformationThrottled("key", interval, "Msg"); // suppressed (2)
+
+        var found = logger.TryGetThrottledSuppressedCount("key", out var suppressed);
+
+        Assert.True(found);
+        Assert.Equal(2, suppressed);
+    }
 }
