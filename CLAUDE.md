@@ -18,7 +18,7 @@ dotnet test --filter "FullyQualifiedName~TestMethodName"
 dotnet pack
 ```
 
-The library targets `netstandard2.0;net9.0`; tests and examples target `net9.0`. Build artifacts go to `artifacts/` (configured via `Directory.Build.props`).
+The library targets `netstandard2.0;net10.0`; tests and examples target `net10.0`. Build artifacts go to `artifacts/` (configured via `Directory.Build.props`).
 
 ## Architecture
 
@@ -28,7 +28,7 @@ The library has two source files plus a localized resources directory:
 
 - **`ThrottledLogger.cs`** — Core throttling engine (`public class ThrottledLogger` in namespace `ThrottledLogging`). Uses a `ConditionalWeakTable<ILogger, ThrottledLogger>` to associate one throttler instance per `ILogger` (instances are GC-friendly, tied to the logger's lifetime). Each instance holds a `ConcurrentDictionary<string, Entry>` mapping throttle keys to `(LastLogTick, SuppressedCount)` records. A single static `Timer` periodically cleans up entries idle longer than the configured expiry (default: 1 hour). Timestamps use `Stopwatch.GetTimestamp()` / ticks for high-resolution, allocation-free timing. **The cleanup callback is a no-op on `netstandard2.0`** (`#if !NETSTANDARD2_0`) because `ConditionalWeakTable` does not support enumeration on that target.
 
-- **`ThrottledLoggerExtensions.cs`** — Extension methods on `ILogger` (`LogTraceThrottled`, `LogDebugThrottled`, `LogInformationThrottled`, `LogWarningThrottled`, `LogErrorThrottled`, `LogCriticalThrottled`). Each takes `(string key, TimeSpan interval, ...)` before the standard message/args parameters. When a log is suppressed, the count is incremented. When logging resumes, the suppressed count is appended to the message template as `" ({SuppressedCount} messages suppressed)"`. A `ConcurrentDictionary` caches the concatenated suppressed templates to avoid repeated string allocations. All extension methods use `params ReadOnlySpan<object?>` on `net9.0` and `params object?[]` on `netstandard2.0` — this `#if NET9_0_OR_GREATER` split appears throughout the file.
+- **`ThrottledLoggerExtensions.cs`** — Extension methods on `ILogger` (`LogTraceThrottled`, `LogDebugThrottled`, `LogInformationThrottled`, `LogWarningThrottled`, `LogErrorThrottled`, `LogCriticalThrottled`). Each takes `(string key, TimeSpan interval, ...)` before the standard message/args parameters. When a log is suppressed, the count is incremented. When logging resumes, the suppressed count is appended to the message template as `" ({SuppressedCount} messages suppressed)"`. A `ConcurrentDictionary` caches the concatenated suppressed templates to avoid repeated string allocations. All extension methods use `params ReadOnlySpan<object?>` on `net10.0` and `params object?[]` on `netstandard2.0` — this `#if NET10_0_OR_GREATER` split appears throughout the file.
 
 - **`Resources/`** — `Messages.resx` (default/English) and `Messages.zh-CN.resx` (Simplified Chinese) hold the localizable suppressed-count suffix string. `Messages.Designer.cs` is auto-generated; edit the `.resx` files to change or add translations.
 
