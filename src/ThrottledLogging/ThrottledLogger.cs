@@ -116,7 +116,7 @@ public class ThrottledLogger
             },
             updateValueFactory: (_, existing) =>
             {
-#if NET9_0_OR_GREATER
+#if NET10_0_OR_GREATER
                 if (Stopwatch.GetElapsedTime(existing.LastLogTick, tick) < interval)
 #else
                 if (tick - existing.LastLogTick < interval.Ticks)
@@ -190,7 +190,7 @@ public class ThrottledLogger
 
         foreach (var kv in _tracker)
         {
-#if NET9_0_OR_GREATER
+#if NET10_0_OR_GREATER
             if (Stopwatch.GetElapsedTime(kv.Value.LastLogTick, tick) > _expiry)
 #else
             if (tick - kv.Value.LastLogTick > _expiry.Ticks)

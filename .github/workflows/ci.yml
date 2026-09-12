@@ -21,13 +21,13 @@ jobs:
         os: [ ubuntu-latest ]
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
-      - uses: actions/setup-dotnet@v4
+      - uses: actions/setup-dotnet@v5
         with:
-          dotnet-version: 9.x
+          dotnet-version: 10.x
 
       - run: dotnet restore
       - run: dotnet build --no-restore -c Debug
@@ -46,7 +46,7 @@ jobs:
 
       - uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: 9.x
+          dotnet-version: 10.x
 
       - run: dotnet pack src/ThrottledLogging/ThrottledLogging.csproj -c Release -o ./artifacts
 
