@@ -103,20 +103,33 @@ public class ThrottledLogger
     public bool ShouldLog(string key, TimeSpan interval, out int suppressedCount)
     {
         var tick = Stopwatch.GetTimestamp();
+        var shouldLog = false;
+        var suppressed = 0;
 
-        if (_tracker.TryGetValue(key, out var entry))
-        {
-            if (tick - entry.LastLogTick < interval.Ticks)
+        _tracker.AddOrUpdate(
+            key,
+            addValueFactory: _ =>
             {
-                _tracker[key] = new Entry(entry.LastLogTick, entry.SuppressedCount + 1);
-                suppressedCount = 0;
-                return false;
-            }
-        }
+                shouldLog = true;
+                suppressed = 0;
+                return new Entry(tick, 0);
+            },
+            updateValueFactory: (_, existing) =>
+            {
+                if (tick - existing.LastLogTick < interval.Ticks)
+                {
+                    shouldLog = false;
+                    suppressed = 0;
+                    return new Entry(existing.LastLogTick, existing.SuppressedCount + 1);
+                }
 
-        suppressedCount = _tracker.TryGetValue(key, out var prev) ? prev.SuppressedCount : 0;
-        _tracker[key] = new Entry(tick, 0);
-        return true;
+                shouldLog = true;
+                suppressed = existing.SuppressedCount;
+                return new Entry(tick, 0);
+            });
+
+        suppressedCount = suppressed;
+        return shouldLog;
     }
 
     /// <summary>

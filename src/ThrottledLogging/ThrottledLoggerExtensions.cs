@@ -32,7 +32,29 @@ public static class ThrottledLoggerExtensions
 #else
         params object?[] args)
 #endif
-        => LogThrottled(logger, LogLevel.Critical, key, interval, messageTemplate, args);
+        => LogThrottled(logger, LogLevel.Critical, key, interval, null, messageTemplate, args);
+
+    /// <summary>
+    /// Writes a throttled critical log message including exception information.
+    /// </summary>
+    /// <param name="logger">The logger instance.</param>
+    /// <param name="key">The throttling key used to group repeated log messages.</param>
+    /// <param name="interval">The minimum time interval between emitted log messages for the same key.</param>
+    /// <param name="exception">The exception to log.</param>
+    /// <param name="messageTemplate">The message template.</param>
+    /// <param name="args">The message template arguments.</param>
+    public static void LogCriticalThrottled(
+        this ILogger logger,
+        string key,
+        TimeSpan interval,
+        Exception? exception,
+        string? messageTemplate,
+#if NET9_0_OR_GREATER
+        params ReadOnlySpan<object?> args)
+#else
+        params object?[] args)
+#endif
+        => LogThrottled(logger, LogLevel.Critical, key, interval, exception, messageTemplate, args);
 
     /// <summary>
     /// Writes a throttled debug log message.
@@ -52,7 +74,29 @@ public static class ThrottledLoggerExtensions
 #else
         params object?[] args)
 #endif
-        => LogThrottled(logger, LogLevel.Debug, key, interval, messageTemplate, args);
+        => LogThrottled(logger, LogLevel.Debug, key, interval, null, messageTemplate, args);
+
+    /// <summary>
+    /// Writes a throttled debug log message including exception information.
+    /// </summary>
+    /// <param name="logger">The logger instance.</param>
+    /// <param name="key">The throttling key used to group repeated log messages.</param>
+    /// <param name="interval">The minimum time interval between emitted log messages for the same key.</param>
+    /// <param name="exception">The exception to log.</param>
+    /// <param name="messageTemplate">The message template.</param>
+    /// <param name="args">The message template arguments.</param>
+    public static void LogDebugThrottled(
+        this ILogger logger,
+        string key,
+        TimeSpan interval,
+        Exception? exception,
+        string? messageTemplate,
+#if NET9_0_OR_GREATER
+        params ReadOnlySpan<object?> args)
+#else
+        params object?[] args)
+#endif
+        => LogThrottled(logger, LogLevel.Debug, key, interval, exception, messageTemplate, args);
 
     /// <summary>
     /// Writes a throttled error log message.
@@ -72,7 +116,29 @@ public static class ThrottledLoggerExtensions
 #else
         params object?[] args)
 #endif
-        => LogThrottled(logger, LogLevel.Error, key, interval, messageTemplate, args);
+        => LogThrottled(logger, LogLevel.Error, key, interval, null, messageTemplate, args);
+
+    /// <summary>
+    /// Writes a throttled error log message including exception information.
+    /// </summary>
+    /// <param name="logger">The logger instance.</param>
+    /// <param name="key">The throttling key used to group repeated log messages.</param>
+    /// <param name="interval">The minimum time interval between emitted log messages for the same key.</param>
+    /// <param name="exception">The exception to log.</param>
+    /// <param name="messageTemplate">The message template.</param>
+    /// <param name="args">The message template arguments.</param>
+    public static void LogErrorThrottled(
+        this ILogger logger,
+        string key,
+        TimeSpan interval,
+        Exception? exception,
+        string? messageTemplate,
+#if NET9_0_OR_GREATER
+        params ReadOnlySpan<object?> args)
+#else
+        params object?[] args)
+#endif
+        => LogThrottled(logger, LogLevel.Error, key, interval, exception, messageTemplate, args);
 
     /// <summary>
     /// Writes a throttled informational log message.
@@ -92,7 +158,29 @@ public static class ThrottledLoggerExtensions
 #else
         params object?[] args)
 #endif
-        => LogThrottled(logger, LogLevel.Information, key, interval, messageTemplate, args);
+        => LogThrottled(logger, LogLevel.Information, key, interval, null, messageTemplate, args);
+
+    /// <summary>
+    /// Writes a throttled informational log message including exception information.
+    /// </summary>
+    /// <param name="logger">The logger instance.</param>
+    /// <param name="key">The throttling key used to group repeated log messages.</param>
+    /// <param name="interval">The minimum time interval between emitted log messages for the same key.</param>
+    /// <param name="exception">The exception to log.</param>
+    /// <param name="messageTemplate">The message template.</param>
+    /// <param name="args">The message template arguments.</param>
+    public static void LogInformationThrottled(
+        this ILogger logger,
+        string key,
+        TimeSpan interval,
+        Exception? exception,
+        string? messageTemplate,
+#if NET9_0_OR_GREATER
+        params ReadOnlySpan<object?> args)
+#else
+        params object?[] args)
+#endif
+        => LogThrottled(logger, LogLevel.Information, key, interval, exception, messageTemplate, args);
 
     /// <summary>
     /// Writes a throttled trace log message.
@@ -112,7 +200,29 @@ public static class ThrottledLoggerExtensions
 #else
         params object?[] args)
 #endif
-        => LogThrottled(logger, LogLevel.Trace, key, interval, messageTemplate, args);
+        => LogThrottled(logger, LogLevel.Trace, key, interval, null, messageTemplate, args);
+
+    /// <summary>
+    /// Writes a throttled trace log message including exception information.
+    /// </summary>
+    /// <param name="logger">The logger instance.</param>
+    /// <param name="key">The throttling key used to group repeated log messages.</param>
+    /// <param name="interval">The minimum time interval between emitted log messages for the same key.</param>
+    /// <param name="exception">The exception to log.</param>
+    /// <param name="messageTemplate">The message template.</param>
+    /// <param name="args">The message template arguments.</param>
+    public static void LogTraceThrottled(
+        this ILogger logger,
+        string key,
+        TimeSpan interval,
+        Exception? exception,
+        string? messageTemplate,
+#if NET9_0_OR_GREATER
+        params ReadOnlySpan<object?> args)
+#else
+        params object?[] args)
+#endif
+        => LogThrottled(logger, LogLevel.Trace, key, interval, exception, messageTemplate, args);
 
     /// <summary>
     /// Writes a throttled warning log message.
@@ -132,7 +242,29 @@ public static class ThrottledLoggerExtensions
 #else
         params object?[] args)
 #endif
-        => LogThrottled(logger, LogLevel.Warning, key, interval, messageTemplate, args);
+        => LogThrottled(logger, LogLevel.Warning, key, interval, null, messageTemplate, args);
+
+    /// <summary>
+    /// Writes a throttled warning log message including exception information.
+    /// </summary>
+    /// <param name="logger">The logger instance.</param>
+    /// <param name="key">The throttling key used to group repeated log messages.</param>
+    /// <param name="interval">The minimum time interval between emitted log messages for the same key.</param>
+    /// <param name="exception">The exception to log.</param>
+    /// <param name="messageTemplate">The message template.</param>
+    /// <param name="args">The message template arguments.</param>
+    public static void LogWarningThrottled(
+        this ILogger logger,
+        string key,
+        TimeSpan interval,
+        Exception? exception,
+        string? messageTemplate,
+#if NET9_0_OR_GREATER
+        params ReadOnlySpan<object?> args)
+#else
+        params object?[] args)
+#endif
+        => LogThrottled(logger, LogLevel.Warning, key, interval, exception, messageTemplate, args);
 
     /// <summary>
     /// Appends the suppressed message count to the existing logging arguments.
@@ -186,6 +318,7 @@ public static class ThrottledLoggerExtensions
     /// <param name="level">The log level.</param>
     /// <param name="key">The throttling key used to group repeated log messages.</param>
     /// <param name="interval">The minimum time interval between emitted log messages for the same key.</param>
+    /// <param name="exception">The exception to log, if any.</param>
     /// <param name="messageTemplate">The message template.</param>
     /// <param name="args">The message template arguments.</param>
     private static void LogThrottled(
@@ -193,6 +326,7 @@ public static class ThrottledLoggerExtensions
         LogLevel level,
         string key,
         TimeSpan interval,
+        Exception? exception,
         string? messageTemplate,
 #if NET9_0_OR_GREATER
         ReadOnlySpan<object?> args)
@@ -213,13 +347,13 @@ public static class ThrottledLoggerExtensions
         if (suppressed <= 0)
         {
 #if NET9_0_OR_GREATER
-            logger.Log(level, messageTemplate, args.ToArray());
+            logger.Log(level, exception, messageTemplate, args.ToArray());
 #else
-            logger.Log(level, messageTemplate, args);
+            logger.Log(level, exception, messageTemplate, args);
 #endif
             return;
         }
 
-        logger.Log(level, GetSuppressedTemplate(messageTemplate), AppendSuppressed(args, suppressed));
+        logger.Log(level, exception, GetSuppressedTemplate(messageTemplate), AppendSuppressed(args, suppressed));
     }
 }
