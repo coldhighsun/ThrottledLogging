@@ -120,4 +120,44 @@ public class ThrottledLoggerTests
         Assert.True(result);
         Assert.Equal(0, suppressed);
     }
+
+    [Fact]
+    public void Reset_RemovesTrackedState_SoNextCallIsTreatedAsFirst()
+    {
+        var throttler = new ThrottledLogger();
+        throttler.ShouldLog("key", TimeSpan.FromDays(1), out _); // allowed
+        throttler.ShouldLog("key", TimeSpan.FromDays(1), out _); // suppressed
+
+        throttler.Reset("key");
+
+        var result = throttler.ShouldLog("key", TimeSpan.FromDays(1), out var suppressed);
+
+        Assert.True(result);
+        Assert.Equal(0, suppressed);
+    }
+
+    [Fact]
+    public void TryGetSuppressedCount_UntrackedKey_ReturnsFalse()
+    {
+        var throttler = new ThrottledLogger();
+
+        var found = throttler.TryGetSuppressedCount("key", out var suppressed);
+
+        Assert.False(found);
+        Assert.Equal(0, suppressed);
+    }
+
+    [Fact]
+    public void TryGetSuppressedCount_TrackedKey_ReturnsCurrentSuppressedCount()
+    {
+        var throttler = new ThrottledLogger();
+        throttler.ShouldLog("key", TimeSpan.FromDays(1), out _); // allowed
+        throttler.ShouldLog("key", TimeSpan.FromDays(1), out _); // suppressed (count=1)
+        throttler.ShouldLog("key", TimeSpan.FromDays(1), out _); // suppressed (count=2)
+
+        var found = throttler.TryGetSuppressedCount("key", out var suppressed);
+
+        Assert.True(found);
+        Assert.Equal(2, suppressed);
+    }
 }

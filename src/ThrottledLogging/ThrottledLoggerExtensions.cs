@@ -7,6 +7,11 @@ namespace ThrottledLogging;
 /// <summary>
 /// Provides throttled logging extension methods for <see cref="ILogger"/>.
 /// </summary>
+/// <remarks>
+/// Message templates must come from a bounded set of compile-time constants (as with standard
+/// <see cref="ILogger"/> usage). Passing dynamically built strings as the template will grow the
+/// internal suppressed-template cache without bound.
+/// </remarks>
 public static class ThrottledLoggerExtensions
 {
     /// <summary>
@@ -299,6 +304,25 @@ public static class ThrottledLoggerExtensions
         => ThrottledLogger.GetOrCreate(logger);
 
     /// <summary>
+    /// Resets any tracked throttle state for <paramref name="key"/> on the given logger,
+    /// so the next throttled call for that key is treated as the first.
+    /// </summary>
+    /// <param name="logger">The logger instance.</param>
+    /// <param name="key">The throttling key to reset.</param>
+    public static void ResetThrottle(this ILogger logger, string key)
+        => GetManager(logger).Reset(key);
+
+    /// <summary>
+    /// Attempts to get the number of log calls currently suppressed for <paramref name="key"/> on the given logger.
+    /// </summary>
+    /// <param name="logger">The logger instance.</param>
+    /// <param name="key">The throttling key to query.</param>
+    /// <param name="suppressedCount">The number of suppressed calls recorded for the key, if tracked.</param>
+    /// <returns><see langword="true"/> if the key is currently tracked; otherwise <see langword="false"/>.</returns>
+    public static bool TryGetThrottledSuppressedCount(this ILogger logger, string key, out int suppressedCount)
+        => GetManager(logger).TryGetSuppressedCount(key, out suppressedCount);
+
+    /// <summary>
     /// Gets the message template that includes the suppressed message count placeholder.
     /// </summary>
     /// <param name="messageTemplate">The original message template.</param>
@@ -347,7 +371,7 @@ public static class ThrottledLoggerExtensions
         if (suppressed <= 0)
         {
 #if NET9_0_OR_GREATER
-            logger.Log(level, exception, messageTemplate, args.ToArray());
+            logger.Log(level, exception, messageTemplate, args.Length == 0 ? [] : args.ToArray());
 #else
             logger.Log(level, exception, messageTemplate, args);
 #endif

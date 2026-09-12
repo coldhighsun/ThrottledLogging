@@ -116,7 +116,11 @@ public class ThrottledLogger
             },
             updateValueFactory: (_, existing) =>
             {
+#if NET9_0_OR_GREATER
+                if (Stopwatch.GetElapsedTime(existing.LastLogTick, tick) < interval)
+#else
                 if (tick - existing.LastLogTick < interval.Ticks)
+#endif
                 {
                     shouldLog = false;
                     suppressed = 0;
@@ -130,6 +134,30 @@ public class ThrottledLogger
 
         suppressedCount = suppressed;
         return shouldLog;
+    }
+
+    /// <summary>
+    /// Removes any tracked throttle state for <paramref name="key"/>, so the next call for that key is treated as the first.
+    /// </summary>
+    /// <param name="key">The throttling key to reset.</param>
+    public void Reset(string key) => _tracker.TryRemove(key, out _);
+
+    /// <summary>
+    /// Attempts to get the number of log calls currently suppressed for <paramref name="key"/>.
+    /// </summary>
+    /// <param name="key">The throttling key to query.</param>
+    /// <param name="suppressedCount">The number of suppressed calls recorded for the key, if tracked.</param>
+    /// <returns><see langword="true"/> if the key is currently tracked; otherwise <see langword="false"/>.</returns>
+    public bool TryGetSuppressedCount(string key, out int suppressedCount)
+    {
+        if (_tracker.TryGetValue(key, out var entry))
+        {
+            suppressedCount = entry.SuppressedCount;
+            return true;
+        }
+
+        suppressedCount = 0;
+        return false;
     }
 
     /// <summary>
@@ -158,10 +186,20 @@ public class ThrottledLogger
     private void Cleanup()
     {
         var tick = Stopwatch.GetTimestamp();
+        List<string>? expiredKeys = null;
 
-        var expiredKeys = _tracker
-            .Where(kv => tick - kv.Value.LastLogTick > _expiryTick)
-            .Select(kv => kv.Key);
+        foreach (var kv in _tracker)
+        {
+            if (tick - kv.Value.LastLogTick > _expiryTick)
+            {
+                (expiredKeys ??= new List<string>()).Add(kv.Key);
+            }
+        }
+
+        if (expiredKeys is null)
+        {
+            return;
+        }
 
         foreach (var k in expiredKeys)
         {
