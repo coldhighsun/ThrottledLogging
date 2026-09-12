@@ -39,7 +39,11 @@ Available methods mirror the standard `ILogger` API:
 - `LogErrorThrottled`
 - `LogCriticalThrottled`
 
-Each method signature is `(string key, TimeSpan interval, string? messageTemplate, params object?[] args)` — on .NET 9+ `args` uses `params ReadOnlySpan<object?>` for reduced allocations.
+Each method signature is `(string key, TimeSpan interval, string? messageTemplate, params object?[] args)` — on .NET 9+ `args` uses `params ReadOnlySpan<object?>` for reduced allocations. Every method also has an overload that accepts an `Exception?` before the message template, matching the standard `ILogger` pattern:
+
+```csharp
+logger.LogErrorThrottled("payment-failed", TimeSpan.FromMinutes(1), exception, "Payment failed for order {OrderId}", orderId);
+```
 
 ### Suppressed count
 
@@ -62,6 +66,19 @@ Each key has its own throttle budget — different keys do not share a counter:
 ```csharp
 logger.LogErrorThrottled("service-a-down", TimeSpan.FromSeconds(5), "Service A is unreachable");
 logger.LogErrorThrottled("service-b-down", TimeSpan.FromSeconds(5), "Service B is unreachable");
+```
+
+### Resetting and inspecting throttle state
+
+Use `ResetThrottle` to manually clear a key's throttle state (the next call is treated as the first), and `TryGetThrottledSuppressedCount` to check how many calls are currently suppressed for a key without logging:
+
+```csharp
+logger.ResetThrottle("disk-full");
+
+if (logger.TryGetThrottledSuppressedCount("disk-full", out var suppressed))
+{
+    Console.WriteLine($"{suppressed} messages currently suppressed");
+}
 ```
 
 ### Configuration
@@ -136,7 +153,11 @@ logger.LogWarningThrottled("disk-full", TimeSpan.FromMinutes(1), "Disk usage is 
 - `LogErrorThrottled`
 - `LogCriticalThrottled`
 
-每个方法的签名为 `(string key, TimeSpan interval, string? messageTemplate, params object?[] args)`，在 .NET 9+ 上 `args` 改用 `params ReadOnlySpan<object?>` 以减少内存分配。
+每个方法的签名为 `(string key, TimeSpan interval, string? messageTemplate, params object?[] args)`，在 .NET 9+ 上 `args` 改用 `params ReadOnlySpan<object?>` 以减少内存分配。每个方法还有一个在 messageTemplate 之前接受 `Exception?` 的重载，与标准 `ILogger` 的用法一致：
+
+```csharp
+logger.LogErrorThrottled("payment-failed", TimeSpan.FromMinutes(1), exception, "Payment failed for order {OrderId}", orderId);
+```
 
 ### 抑制计数
 
@@ -153,6 +174,19 @@ Disk usage is above 95% (3个消息被隐藏)
 ```csharp
 logger.LogErrorThrottled("service-a-down", TimeSpan.FromSeconds(5), "Service A is unreachable");
 logger.LogErrorThrottled("service-b-down", TimeSpan.FromSeconds(5), "Service B is unreachable");
+```
+
+### 重置与查询限流状态
+
+使用 `ResetThrottle` 可以手动清除某个 key 的限流状态（下一次调用会被当作首次调用处理）；使用 `TryGetThrottledSuppressedCount` 可以在不写日志的情况下查询某个 key 当前被抑制的次数：
+
+```csharp
+logger.ResetThrottle("disk-full");
+
+if (logger.TryGetThrottledSuppressedCount("disk-full", out var suppressed))
+{
+    Console.WriteLine($"当前有 {suppressed} 条消息被抑制");
+}
 ```
 
 ### 全局配置
