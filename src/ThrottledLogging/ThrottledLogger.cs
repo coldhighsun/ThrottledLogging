@@ -14,7 +14,7 @@ public class ThrottledLogger
     /// <summary>
     /// Represents a tracked log entry with its last log timestamp and the number of suppressed occurrences.
     /// </summary>
-    private struct Entry
+    private struct Entry : IEquatable<Entry>
     {
         /// <summary>
         /// Initializes a new instance of the <see cref="Entry"/> struct with the specified last log timestamp and suppressed count.
@@ -42,6 +42,30 @@ public class ThrottledLogger
         {
             get;
         }
+
+        /// <summary>
+        /// Determines whether this instance and another <see cref="Entry"/> have the same field values.
+        /// </summary>
+        /// <param name="other">The other <see cref="Entry"/> to compare against.</param>
+        /// <returns><see langword="true"/> if both instances have equal <see cref="LastLogTick"/> and <see cref="SuppressedCount"/> values; otherwise <see langword="false"/>.</returns>
+        /// <remarks>
+        /// Implementing <see cref="IEquatable{T}"/> lets <see cref="ConcurrentDictionary{TKey, TValue}.TryUpdate(TKey, TValue, TValue)"/>
+        /// use the non-boxing generic comparer instead of falling back to a boxing <see cref="object.Equals(object?)"/> comparison.
+        /// </remarks>
+        public bool Equals(Entry other) => LastLogTick == other.LastLogTick && SuppressedCount == other.SuppressedCount;
+
+        /// <summary>
+        /// Determines whether this instance and a specified object, which must also be an <see cref="Entry"/>, have the same field values.
+        /// </summary>
+        /// <param name="obj">The object to compare with the current instance.</param>
+        /// <returns><see langword="true"/> if <paramref name="obj"/> is an <see cref="Entry"/> equal to this instance; otherwise <see langword="false"/>.</returns>
+        public override bool Equals(object? obj) => obj is Entry other && Equals(other);
+
+        /// <summary>
+        /// Returns a hash code based on <see cref="LastLogTick"/> and <see cref="SuppressedCount"/>.
+        /// </summary>
+        /// <returns>A hash code for the current instance.</returns>
+        public override int GetHashCode() => HashCode.Combine(LastLogTick, SuppressedCount);
     }
 
     /// <summary>
@@ -103,37 +127,37 @@ public class ThrottledLogger
     public bool ShouldLog(string key, TimeSpan interval, out int suppressedCount)
     {
         var tick = Stopwatch.GetTimestamp();
-        var shouldLog = false;
-        var suppressed = 0;
 
-        _tracker.AddOrUpdate(
-            key,
-            addValueFactory: _ =>
+        while (true)
+        {
+            if (_tracker.TryGetValue(key, out var existing))
             {
-                shouldLog = true;
-                suppressed = 0;
-                return new Entry(tick, 0);
-            },
-            updateValueFactory: (_, existing) =>
-            {
-#if NET10_0_OR_GREATER
                 if (Stopwatch.GetElapsedTime(existing.LastLogTick, tick) < interval)
-#else
-                if (tick - existing.LastLogTick < interval.Ticks)
-#endif
                 {
-                    shouldLog = false;
-                    suppressed = 0;
-                    return new Entry(existing.LastLogTick, existing.SuppressedCount + 1);
+                    if (_tracker.TryUpdate(key, new Entry(existing.LastLogTick, existing.SuppressedCount + 1), existing))
+                    {
+                        suppressedCount = 0;
+                        return false;
+                    }
+
+                    continue;
                 }
 
-                shouldLog = true;
-                suppressed = existing.SuppressedCount;
-                return new Entry(tick, 0);
-            });
+                if (_tracker.TryUpdate(key, new Entry(tick, 0), existing))
+                {
+                    suppressedCount = existing.SuppressedCount;
+                    return true;
+                }
 
-        suppressedCount = suppressed;
-        return shouldLog;
+                continue;
+            }
+
+            if (_tracker.TryAdd(key, new Entry(tick, 0)))
+            {
+                suppressedCount = 0;
+                return true;
+            }
+        }
     }
 
     /// <summary>
@@ -172,12 +196,10 @@ public class ThrottledLogger
     /// </summary>
     private static void OnCleanupTimer(object? state)
     {
-#if !NETSTANDARD2_0
         foreach (var (_, throttler) in Instances)
         {
             throttler.Cleanup();
         }
-#endif
     }
 
     /// <summary>
@@ -190,11 +212,7 @@ public class ThrottledLogger
 
         foreach (var kv in _tracker)
         {
-#if NET10_0_OR_GREATER
             if (Stopwatch.GetElapsedTime(kv.Value.LastLogTick, tick) > _expiry)
-#else
-            if (tick - kv.Value.LastLogTick > _expiry.Ticks)
-#endif
             {
                 (expiredKeys ??= new List<string>()).Add(kv.Key);
             }
