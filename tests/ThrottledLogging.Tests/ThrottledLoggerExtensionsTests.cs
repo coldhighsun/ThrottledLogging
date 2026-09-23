@@ -56,6 +56,36 @@ public class ThrottledLoggerExtensionsTests
         }
     }
 
+    [Fact]
+    public void LogThrottled_AfterSuppression_UsesCurrentCultureNotFirstCachedCulture()
+    {
+        try
+        {
+            var interval = TimeSpan.FromMilliseconds(1000);
+
+            Messages.Culture = CultureInfo.InvariantCulture;
+            var enLogger = new FakeLogger();
+            enLogger.LogInformationThrottled("en-key", interval, "Msg"); // logged
+            enLogger.LogInformationThrottled("en-key", interval, "Msg"); // suppressed (1)
+            Thread.Sleep(1500);
+            enLogger.LogInformationThrottled("en-key", interval, "Msg"); // logged with count, caches en suffix for "Msg"
+
+            Messages.Culture = new CultureInfo("zh-CN");
+            var zhLogger = new FakeLogger();
+            zhLogger.LogInformationThrottled("zh-key", interval, "Msg"); // logged
+            zhLogger.LogInformationThrottled("zh-key", interval, "Msg"); // suppressed (1)
+            Thread.Sleep(1500);
+            zhLogger.LogInformationThrottled("zh-key", interval, "Msg"); // logged with count, must use zh suffix
+
+            Assert.Contains("messages suppressed", enLogger.Entries[1].Message);
+            Assert.Contains("个消息被隐藏", zhLogger.Entries[1].Message);
+        }
+        finally
+        {
+            Messages.Culture = null;
+        }
+    }
+
     [Theory]
     [InlineData(LogLevel.Trace)]
     [InlineData(LogLevel.Debug)]
