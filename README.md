@@ -39,7 +39,7 @@ Available methods mirror the standard `ILogger` API:
 - `LogErrorThrottled`
 - `LogCriticalThrottled`
 
-Each method signature is `(string key, TimeSpan interval, string? messageTemplate, params object?[] args)` — on .NET 10+ `args` uses `params ReadOnlySpan<object?>` for reduced allocations. Every method also has an overload that accepts an `Exception?` before the message template, matching the standard `ILogger` pattern:
+Each method signature is `(string key, TimeSpan interval, string? messageTemplate, params ReadOnlySpan<object?> args)`. Every method also has an overload that accepts an `Exception?` before the message template, matching the standard `ILogger` pattern:
 
 ```csharp
 logger.LogErrorThrottled("payment-failed", TimeSpan.FromMinutes(1), exception, "Payment failed for order {OrderId}", orderId);
@@ -97,10 +97,7 @@ ThrottledLogger.Configure(expiry: TimeSpan.FromMinutes(30), cleanupPeriod: TimeS
 
 ## Requirements
 
-| Target Framework | Notes |
-|---|---|
-| .NET Standard 2.0 | Background cleanup timer disabled; idle entries are released when the `ILogger` is GC'd |
-| .NET 10+ | Full support; `args` uses `params ReadOnlySpan<object?>` for reduced allocations |
+.NET 10 or later.
 
 ## Build
 
@@ -155,7 +152,7 @@ logger.LogWarningThrottled("disk-full", TimeSpan.FromMinutes(1), "Disk usage is 
 - `LogErrorThrottled`
 - `LogCriticalThrottled`
 
-每个方法的签名为 `(string key, TimeSpan interval, string? messageTemplate, params object?[] args)`，在 .NET 10+ 上 `args` 改用 `params ReadOnlySpan<object?>` 以减少内存分配。每个方法还有一个在 messageTemplate 之前接受 `Exception?` 的重载，与标准 `ILogger` 的用法一致：
+每个方法的签名为 `(string key, TimeSpan interval, string? messageTemplate, params ReadOnlySpan<object?> args)`。每个方法还有一个在 messageTemplate 之前接受 `Exception?` 的重载，与标准 `ILogger` 的用法一致：
 
 ```csharp
 logger.LogErrorThrottled("payment-failed", TimeSpan.FromMinutes(1), exception, "Payment failed for order {OrderId}", orderId);
@@ -207,10 +204,7 @@ ThrottledLogger.Configure(expiry: TimeSpan.FromMinutes(30), cleanupPeriod: TimeS
 
 ## 环境要求
 
-| 目标框架 | 说明 |
-|---|---|
-| .NET Standard 2.0 | 后台清理定时器已禁用；当关联的 `ILogger` 被垃圾回收时，相关条目仍会被释放 |
-| .NET 10+ | 完整支持；`args` 使用 `params ReadOnlySpan<object?>` 以减少内存分配 |
+.NET 10 或更高版本。
 
 ## 构建
 
