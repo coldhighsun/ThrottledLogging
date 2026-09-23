@@ -33,11 +33,7 @@ public static class ThrottledLoggerExtensions
         string key,
         TimeSpan interval,
         string? messageTemplate,
-#if NET10_0_OR_GREATER
         params ReadOnlySpan<object?> args)
-#else
-        params object?[] args)
-#endif
         => LogThrottled(logger, LogLevel.Critical, key, interval, null, messageTemplate, args);
 
     /// <summary>
@@ -55,11 +51,7 @@ public static class ThrottledLoggerExtensions
         TimeSpan interval,
         Exception? exception,
         string? messageTemplate,
-#if NET10_0_OR_GREATER
         params ReadOnlySpan<object?> args)
-#else
-        params object?[] args)
-#endif
         => LogThrottled(logger, LogLevel.Critical, key, interval, exception, messageTemplate, args);
 
     /// <summary>
@@ -75,11 +67,7 @@ public static class ThrottledLoggerExtensions
         string key,
         TimeSpan interval,
         string? messageTemplate,
-#if NET10_0_OR_GREATER
         params ReadOnlySpan<object?> args)
-#else
-        params object?[] args)
-#endif
         => LogThrottled(logger, LogLevel.Debug, key, interval, null, messageTemplate, args);
 
     /// <summary>
@@ -97,11 +85,7 @@ public static class ThrottledLoggerExtensions
         TimeSpan interval,
         Exception? exception,
         string? messageTemplate,
-#if NET10_0_OR_GREATER
         params ReadOnlySpan<object?> args)
-#else
-        params object?[] args)
-#endif
         => LogThrottled(logger, LogLevel.Debug, key, interval, exception, messageTemplate, args);
 
     /// <summary>
@@ -117,11 +101,7 @@ public static class ThrottledLoggerExtensions
         string key,
         TimeSpan interval,
         string? messageTemplate,
-#if NET10_0_OR_GREATER
         params ReadOnlySpan<object?> args)
-#else
-        params object?[] args)
-#endif
         => LogThrottled(logger, LogLevel.Error, key, interval, null, messageTemplate, args);
 
     /// <summary>
@@ -139,11 +119,7 @@ public static class ThrottledLoggerExtensions
         TimeSpan interval,
         Exception? exception,
         string? messageTemplate,
-#if NET10_0_OR_GREATER
         params ReadOnlySpan<object?> args)
-#else
-        params object?[] args)
-#endif
         => LogThrottled(logger, LogLevel.Error, key, interval, exception, messageTemplate, args);
 
     /// <summary>
@@ -159,11 +135,7 @@ public static class ThrottledLoggerExtensions
         string key,
         TimeSpan interval,
         string? messageTemplate,
-#if NET10_0_OR_GREATER
         params ReadOnlySpan<object?> args)
-#else
-        params object?[] args)
-#endif
         => LogThrottled(logger, LogLevel.Information, key, interval, null, messageTemplate, args);
 
     /// <summary>
@@ -181,11 +153,7 @@ public static class ThrottledLoggerExtensions
         TimeSpan interval,
         Exception? exception,
         string? messageTemplate,
-#if NET10_0_OR_GREATER
         params ReadOnlySpan<object?> args)
-#else
-        params object?[] args)
-#endif
         => LogThrottled(logger, LogLevel.Information, key, interval, exception, messageTemplate, args);
 
     /// <summary>
@@ -201,11 +169,7 @@ public static class ThrottledLoggerExtensions
         string key,
         TimeSpan interval,
         string? messageTemplate,
-#if NET10_0_OR_GREATER
         params ReadOnlySpan<object?> args)
-#else
-        params object?[] args)
-#endif
         => LogThrottled(logger, LogLevel.Trace, key, interval, null, messageTemplate, args);
 
     /// <summary>
@@ -223,11 +187,7 @@ public static class ThrottledLoggerExtensions
         TimeSpan interval,
         Exception? exception,
         string? messageTemplate,
-#if NET10_0_OR_GREATER
         params ReadOnlySpan<object?> args)
-#else
-        params object?[] args)
-#endif
         => LogThrottled(logger, LogLevel.Trace, key, interval, exception, messageTemplate, args);
 
     /// <summary>
@@ -243,11 +203,7 @@ public static class ThrottledLoggerExtensions
         string key,
         TimeSpan interval,
         string? messageTemplate,
-#if NET10_0_OR_GREATER
         params ReadOnlySpan<object?> args)
-#else
-        params object?[] args)
-#endif
         => LogThrottled(logger, LogLevel.Warning, key, interval, null, messageTemplate, args);
 
     /// <summary>
@@ -265,11 +221,7 @@ public static class ThrottledLoggerExtensions
         TimeSpan interval,
         Exception? exception,
         string? messageTemplate,
-#if NET10_0_OR_GREATER
         params ReadOnlySpan<object?> args)
-#else
-        params object?[] args)
-#endif
         => LogThrottled(logger, LogLevel.Warning, key, interval, exception, messageTemplate, args);
 
     /// <summary>
@@ -278,20 +230,10 @@ public static class ThrottledLoggerExtensions
     /// <param name="args">The original logging arguments.</param>
     /// <param name="suppressed">The number of suppressed messages.</param>
     /// <returns>A new array containing the original arguments followed by the suppressed count.</returns>
-    private static object?[] AppendSuppressed(
-#if NET10_0_OR_GREATER
-        ReadOnlySpan<object?> args,
-#else
-        object?[] args,
-#endif
-        int suppressed)
+    private static object?[] AppendSuppressed(ReadOnlySpan<object?> args, int suppressed)
     {
         var combined = new object?[args.Length + 1];
-#if NET10_0_OR_GREATER
         args.CopyTo(combined);
-#else
-        Array.Copy(args, combined, args.Length);
-#endif
         combined[args.Length] = suppressed;
         return combined;
     }
@@ -361,11 +303,7 @@ public static class ThrottledLoggerExtensions
         TimeSpan interval,
         Exception? exception,
         string? messageTemplate,
-#if NET10_0_OR_GREATER
         ReadOnlySpan<object?> args)
-#else
-        object?[] args)
-#endif
     {
         if (!logger.IsEnabled(level))
         {
@@ -379,11 +317,7 @@ public static class ThrottledLoggerExtensions
 
         if (suppressed <= 0)
         {
-#if NET10_0_OR_GREATER
             logger.Log(level, exception, messageTemplate, args.ToArray());
-#else
-            logger.Log(level, exception, messageTemplate, args);
-#endif
             return;
         }
 

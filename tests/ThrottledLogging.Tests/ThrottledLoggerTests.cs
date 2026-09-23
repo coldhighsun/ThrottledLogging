@@ -110,6 +110,71 @@ public class ThrottledLoggerTests
     }
 
     [Fact]
+    public void ShouldLog_ConcurrentCallsOnSameKey_NoLostUpdates()
+    {
+        var throttler = new ThrottledLogger();
+        const int threadCount = 8;
+        const int callsPerThread = 2000;
+        var trueCount = 0;
+
+        Parallel.For(0, threadCount, _ =>
+        {
+            for (var i = 0; i < callsPerThread; i++)
+            {
+                if (throttler.ShouldLog("key", TimeSpan.FromDays(1), out _))
+                {
+                    Interlocked.Increment(ref trueCount);
+                }
+            }
+        });
+
+        // Only the very first call across all threads should be allowed; every other
+        // call races against the same CAS-retry loop in ShouldLog and must be counted
+        // as suppressed exactly once, with no updates lost to the race.
+        Assert.Equal(1, trueCount);
+
+        var found = throttler.TryGetSuppressedCount("key", out var suppressed);
+        Assert.True(found);
+        Assert.Equal((threadCount * callsPerThread) - 1, suppressed);
+    }
+
+    [Fact]
+    public void ShouldLog_ConcurrentCallsWithExpiringInterval_SuppressedCountsAreNeverLostOrDuplicated()
+    {
+        var throttler = new ThrottledLogger();
+        var interval = TimeSpan.FromMilliseconds(5);
+        const int threadCount = 8;
+        const int callsPerThread = 2000;
+
+        var falseCount = 0;
+        var reportedSuppressedSum = 0;
+
+        Parallel.For(0, threadCount, _ =>
+        {
+            for (var i = 0; i < callsPerThread; i++)
+            {
+                if (throttler.ShouldLog("key", interval, out var suppressed))
+                {
+                    Interlocked.Add(ref reportedSuppressedSum, suppressed);
+                }
+                else
+                {
+                    Interlocked.Increment(ref falseCount);
+                }
+            }
+        });
+
+        throttler.TryGetSuppressedCount("key", out var leftover);
+
+        // The short interval forces many concurrent transitions through the "resume after
+        // expiry" CAS branch in ShouldLog, not just the "still throttled" branch. Every
+        // suppressed (false) call must be accounted for exactly once, either by a later
+        // "true" call reporting it or by the leftover count still tracked at the end -
+        // regardless of how many threads raced through the reset at the same time.
+        Assert.Equal(falseCount, reportedSuppressedSum + leftover);
+    }
+
+    [Fact]
     public void ShouldLog_ZeroInterval_AlwaysReturnsTrue()
     {
         var throttler = new ThrottledLogger();
