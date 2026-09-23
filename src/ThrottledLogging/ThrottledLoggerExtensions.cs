@@ -16,8 +16,9 @@ public static class ThrottledLoggerExtensions
 {
     /// <summary>
     /// Caches message templates with the suppressed count placeholder to avoid repeated string concatenation for the same template.
+    /// Keyed by both the template and the culture name, since the appended suffix is localized.
     /// </summary>
-    private static readonly ConcurrentDictionary<string, string> SuppressedTemplateCache = new();
+    private static readonly ConcurrentDictionary<(string Template, string CultureName), string> SuppressedTemplateCache = new();
 
     /// <summary>
     /// Writes a throttled critical log message.
@@ -331,9 +332,17 @@ public static class ThrottledLoggerExtensions
     /// or the suppressed suffix when the original template is <see langword="null"/>.
     /// </returns>
     private static string GetSuppressedTemplate(string? messageTemplate)
-        => messageTemplate is null
-            ? Messages.SuppressedSuffix
-            : SuppressedTemplateCache.GetOrAdd(messageTemplate, t => string.Concat(t, Messages.SuppressedSuffix));
+    {
+        if (messageTemplate is null)
+        {
+            return Messages.SuppressedSuffix;
+        }
+
+        var cultureName = (Messages.Culture ?? System.Globalization.CultureInfo.CurrentUICulture).Name;
+        return SuppressedTemplateCache.GetOrAdd(
+            (messageTemplate, cultureName),
+            static key => string.Concat(key.Template, Messages.SuppressedSuffix));
+    }
 
     /// <summary>
     /// Writes a log entry only when the throttling policy allows it.
