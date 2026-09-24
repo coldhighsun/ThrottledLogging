@@ -15,6 +15,11 @@ namespace ThrottledLogging;
 public static class ThrottledLoggerExtensions
 {
     /// <summary>
+    /// The text <see cref="ILogger"/> renders for a <see langword="null"/> message template, used as the base when appending the suppressed count.
+    /// </summary>
+    private const string NullTemplate = "[null]";
+
+    /// <summary>
     /// Caches message templates with the suppressed count placeholder to avoid repeated string concatenation for the same template.
     /// Keyed by both the template and the culture name, since the appended suffix is localized.
     /// </summary>
@@ -270,16 +275,10 @@ public static class ThrottledLoggerExtensions
     /// </summary>
     /// <param name="messageTemplate">The original message template.</param>
     /// <returns>
-    /// The original message template with an appended suppressed count placeholder,
-    /// or the suppressed suffix when the original template is <see langword="null"/>.
+    /// The original message template with an appended suppressed count placeholder.
     /// </returns>
-    private static string GetSuppressedTemplate(string? messageTemplate)
+    private static string GetSuppressedTemplate(string messageTemplate)
     {
-        if (messageTemplate is null)
-        {
-            return Messages.SuppressedSuffix;
-        }
-
         var cultureName = (Messages.Culture ?? System.Globalization.CultureInfo.CurrentUICulture).Name;
         return SuppressedTemplateCache.GetOrAdd(
             (messageTemplate, cultureName),
@@ -318,6 +317,13 @@ public static class ThrottledLoggerExtensions
         if (suppressed <= 0)
         {
             logger.Log(level, exception, messageTemplate, args.ToArray());
+            return;
+        }
+
+        if (messageTemplate is null)
+        {
+            // Mirrors how a null template is rendered ("[null]") and binds the suffix's only placeholder to the count rather than to args[0].
+            logger.Log(level, exception, GetSuppressedTemplate(NullTemplate), suppressed);
             return;
         }
 
