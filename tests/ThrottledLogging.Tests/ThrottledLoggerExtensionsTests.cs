@@ -191,6 +191,31 @@ public class ThrottledLoggerExtensionsTests
         }
     }
 
+    /// <summary>
+    /// Verifies that with a <see langword="null"/> template and extra args, the resumed message renders like the
+    /// first one ("[null]") and the suffix placeholder binds to the suppressed count rather than to the first arg.
+    /// </summary>
+    [Fact]
+    public void LogThrottled_NullTemplateWithArgs_SuffixBindsToSuppressedCount()
+    {
+        Messages.Culture = CultureInfo.InvariantCulture;
+        try
+        {
+            var logger = new FakeLogger();
+
+            logger.LogInformationThrottled("key", TimeSpan.FromDays(1), null, 42);
+            logger.LogInformationThrottled("key", TimeSpan.FromDays(1), null, 42); // suppressed (1)
+            logger.LogInformationThrottled("key", TimeSpan.Zero, null, 42);
+
+            Assert.Equal("[null]", logger.Entries[0].Message);
+            Assert.Equal("[null] (1 messages suppressed)", logger.Entries[^1].Message);
+        }
+        finally
+        {
+            Messages.Culture = null;
+        }
+    }
+
     [Fact]
     public void LogErrorThrottled_WithException_LogsMessage()
     {
