@@ -98,7 +98,7 @@ ThrottledLogger.Configure(expiry: TimeSpan.FromMinutes(30), cleanupPeriod: TimeS
 
 | Parameter | Default | Description |
 |---|---|---|
-| `expiry` | 1 hour | How long an idle entry is kept before being removed |
+| `expiry` | 1 hour | How long an idle entry (no logged or suppressed calls) is kept before being removed. Entries still inside their throttle interval are never removed, so avoid very long intervals with an unbounded set of keys. |
 | `cleanupPeriod` | 1 hour | How often the background cleanup timer runs |
 
 ## Requirements
@@ -200,7 +200,7 @@ ThrottledLogger.Configure(expiry: TimeSpan.FromMinutes(30), cleanupPeriod: TimeS
 
 | 参数 | 默认值 | 说明 |
 |---|---|---|
-| `expiry` | 1 小时 | 空闲条目在被移除前的保留时长 |
+| `expiry` | 1 小时 | 空闲条目（无输出也无被抑制的调用）在被移除前的保留时长。仍处于节流间隔内的条目不会被移除，因此应避免将超长间隔与数量无上限的 key 组合使用。 |
 | `cleanupPeriod` | 1 小时 | 后台清理定时器的运行间隔 |
 
 ## 环境要求
