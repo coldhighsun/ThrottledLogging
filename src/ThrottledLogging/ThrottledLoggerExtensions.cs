@@ -1,6 +1,4 @@
 using Microsoft.Extensions.Logging;
-using System.Collections.Concurrent;
-using ThrottledLogging.Resources;
 
 namespace ThrottledLogging;
 
@@ -14,17 +12,6 @@ namespace ThrottledLogging;
 /// </remarks>
 public static class ThrottledLoggerExtensions
 {
-    /// <summary>
-    /// The text <see cref="ILogger"/> renders for a <see langword="null"/> message template, used as the base when appending the suppressed count.
-    /// </summary>
-    private const string NullTemplate = "[null]";
-
-    /// <summary>
-    /// Caches message templates with the suppressed count placeholder to avoid repeated string concatenation for the same template.
-    /// Keyed by both the template and the culture name, since the appended suffix is localized.
-    /// </summary>
-    private static readonly ConcurrentDictionary<(string Template, string CultureName), string> SuppressedTemplateCache = new();
-
     /// <summary>
     /// Writes a throttled critical log message.
     /// </summary>
@@ -230,20 +217,6 @@ public static class ThrottledLoggerExtensions
         => LogThrottled(logger, LogLevel.Warning, key, interval, exception, messageTemplate, args);
 
     /// <summary>
-    /// Appends the suppressed message count to the existing logging arguments.
-    /// </summary>
-    /// <param name="args">The original logging arguments.</param>
-    /// <param name="suppressed">The number of suppressed messages.</param>
-    /// <returns>A new array containing the original arguments followed by the suppressed count.</returns>
-    private static object?[] AppendSuppressed(ReadOnlySpan<object?> args, int suppressed)
-    {
-        var combined = new object?[args.Length + 1];
-        args.CopyTo(combined);
-        combined[args.Length] = suppressed;
-        return combined;
-    }
-
-    /// <summary>
     /// Gets the throttling manager associated with the specified logger.
     /// </summary>
     /// <param name="logger">The logger instance.</param>
@@ -269,21 +242,6 @@ public static class ThrottledLoggerExtensions
     /// <returns><see langword="true"/> if the key is currently tracked; otherwise <see langword="false"/>.</returns>
     public static bool TryGetThrottledSuppressedCount(this ILogger logger, string key, out int suppressedCount)
         => GetManager(logger).TryGetSuppressedCount(key, out suppressedCount);
-
-    /// <summary>
-    /// Gets the message template that includes the suppressed message count placeholder.
-    /// </summary>
-    /// <param name="messageTemplate">The original message template.</param>
-    /// <returns>
-    /// The original message template with an appended suppressed count placeholder.
-    /// </returns>
-    private static string GetSuppressedTemplate(string messageTemplate)
-    {
-        var cultureName = (Messages.Culture ?? System.Globalization.CultureInfo.CurrentUICulture).Name;
-        return SuppressedTemplateCache.GetOrAdd(
-            (messageTemplate, cultureName),
-            static key => string.Concat(key.Template, Messages.SuppressedSuffix));
-    }
 
     /// <summary>
     /// Writes a log entry only when the throttling policy allows it.
@@ -320,13 +278,8 @@ public static class ThrottledLoggerExtensions
             return;
         }
 
-        if (messageTemplate is null)
-        {
-            // Mirrors how a null template is rendered ("[null]") and binds the suffix's only placeholder to the count rather than to args[0].
-            logger.Log(level, exception, GetSuppressedTemplate(NullTemplate), suppressed);
-            return;
-        }
-
-        logger.Log(level, exception, GetSuppressedTemplate(messageTemplate), AppendSuppressed(args, suppressed));
+        // Wraps the original message's state rather than rewriting its template, so the message renders as it would unsuppressed.
+        var state = SuppressedLogValues.Create(messageTemplate, args.ToArray(), suppressed);
+        logger.Log(level, default, state, exception, SuppressedLogValues.Formatter);
     }
 }

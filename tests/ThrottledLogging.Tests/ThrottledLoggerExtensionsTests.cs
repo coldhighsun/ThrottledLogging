@@ -216,6 +216,193 @@ public class ThrottledLoggerExtensionsTests
         }
     }
 
+    /// <summary>
+    /// Verifies that a template logged without args, which is output verbatim on first use, is still output
+    /// verbatim once the suppressed count is appended, instead of having its braces parsed as placeholders.
+    /// </summary>
+    /// <param name="messageTemplate">The message template to log.</param>
+    [Theory]
+    [InlineData("Unexpected token '{' in input")]
+    [InlineData("Bad payload {\"a\":1}")]
+    [InlineData("Got {{literal}}")]
+    [InlineData("Value {Missing}")]
+    [InlineData("Stray } brace")]
+    public void LogThrottled_NoArgsTemplateWithBraces_ResumedMessageRendersTemplateVerbatim(string messageTemplate)
+    {
+        Messages.Culture = CultureInfo.InvariantCulture;
+        try
+        {
+            var logger = new FakeLogger();
+
+            logger.LogInformationThrottled("key", TimeSpan.FromDays(1), messageTemplate);
+            logger.LogInformationThrottled("key", TimeSpan.FromDays(1), messageTemplate); // suppressed (1)
+            logger.LogInformationThrottled("key", TimeSpan.Zero, messageTemplate);
+
+            Assert.Equal(messageTemplate, logger.Entries[0].Message);
+            Assert.Equal($"{messageTemplate} (1 messages suppressed)", logger.Entries[^1].Message);
+        }
+        finally
+        {
+            Messages.Culture = null;
+        }
+    }
+
+    /// <summary>
+    /// Verifies that arguments beyond the template's placeholders are ignored, so the suffix placeholder binds to the
+    /// suppressed count rather than to an extra argument.
+    /// </summary>
+    /// <param name="messageTemplate">The message template to log with the args <c>91, 42</c>.</param>
+    /// <param name="expected">The expected rendering of the first message.</param>
+    [Theory]
+    [InlineData("Disk full", "Disk full")]
+    [InlineData("Disk {Percent}% full", "Disk 91% full")]
+    public void LogThrottled_MoreArgsThanPlaceholders_SuffixBindsToSuppressedCount(string messageTemplate, string expected)
+    {
+        Messages.Culture = CultureInfo.InvariantCulture;
+        try
+        {
+            var logger = new FakeLogger();
+
+            logger.LogInformationThrottled("key", TimeSpan.FromDays(1), messageTemplate, 91, 42);
+            logger.LogInformationThrottled("key", TimeSpan.FromDays(1), messageTemplate, 91, 42); // suppressed (1)
+            logger.LogInformationThrottled("key", TimeSpan.Zero, messageTemplate, 91, 42);
+
+            Assert.Equal(expected, logger.Entries[0].Message);
+            Assert.Equal($"{expected} (1 messages suppressed)", logger.Entries[^1].Message);
+        }
+        finally
+        {
+            Messages.Culture = null;
+        }
+    }
+
+    /// <summary>
+    /// Verifies that with fewer arguments than placeholders, the resumed message fails to render just like the first
+    /// one does, instead of the suppressed count silently filling the missing placeholder.
+    /// </summary>
+    [Fact]
+    public void LogThrottled_FewerArgsThanPlaceholders_ResumedMessageFailsLikeFirst()
+    {
+        var logger = new FakeLogger();
+
+        Assert.Throws<FormatException>(
+            () => logger.LogInformationThrottled("key", TimeSpan.FromDays(1), "{First} and {Second}", 1));
+        logger.LogInformationThrottled("key", TimeSpan.FromDays(1), "{First} and {Second}", 1); // suppressed (1)
+
+        Assert.Throws<FormatException>(
+            () => logger.LogInformationThrottled("key", TimeSpan.Zero, "{First} and {Second}", 1));
+    }
+
+    /// <summary>
+    /// Verifies that a formatted template with escaped braces keeps rendering them the same way once the suppressed count is appended.
+    /// </summary>
+    [Fact]
+    public void LogThrottled_FormattedTemplateWithEscapedBraces_ResumedMessageRendersLikeFirst()
+    {
+        Messages.Culture = CultureInfo.InvariantCulture;
+        try
+        {
+            var logger = new FakeLogger();
+
+            logger.LogInformationThrottled("key", TimeSpan.FromDays(1), "{{Literal}} {Value}", 5);
+            logger.LogInformationThrottled("key", TimeSpan.FromDays(1), "{{Literal}} {Value}", 5); // suppressed (1)
+            logger.LogInformationThrottled("key", TimeSpan.Zero, "{{Literal}} {Value}", 5);
+
+            Assert.Equal("{Literal} 5", logger.Entries[0].Message);
+            Assert.Equal("{Literal} 5 (1 messages suppressed)", logger.Entries[^1].Message);
+        }
+        finally
+        {
+            Messages.Culture = null;
+        }
+    }
+
+    /// <summary>
+    /// Verifies that the resumed message keeps the original structured values, adds the suppressed count, and reports
+    /// the original template followed by the suffix as <c>{OriginalFormat}</c>.
+    /// </summary>
+    [Fact]
+    public void LogThrottled_AfterSuppression_StateHasOriginalValuesSuppressedCountAndOriginalFormat()
+    {
+        Messages.Culture = CultureInfo.InvariantCulture;
+        try
+        {
+            var logger = new FakeLogger();
+
+            logger.LogInformationThrottled("key", TimeSpan.FromDays(1), "Disk {Percent}% full", 91);
+            logger.LogInformationThrottled("key", TimeSpan.FromDays(1), "Disk {Percent}% full", 91); // suppressed (1)
+            logger.LogInformationThrottled("key", TimeSpan.Zero, "Disk {Percent}% full", 91);
+
+            KeyValuePair<string, object?>[] expected =
+            [
+                new("Percent", 91),
+                new("SuppressedCount", 1),
+                new("{OriginalFormat}", "Disk {Percent}% full ({SuppressedCount} messages suppressed)"),
+            ];
+            Assert.Equal(expected, logger.Entries[^1].State);
+        }
+        finally
+        {
+            Messages.Culture = null;
+        }
+    }
+
+    /// <summary>
+    /// Verifies that a template logged without args keeps its braces unescaped in <c>{OriginalFormat}</c> once resumed.
+    /// </summary>
+    [Fact]
+    public void LogThrottled_NoArgsTemplateWithBraces_OriginalFormatIsNotEscaped()
+    {
+        Messages.Culture = CultureInfo.InvariantCulture;
+        try
+        {
+            var logger = new FakeLogger();
+
+            logger.LogInformationThrottled("key", TimeSpan.FromDays(1), "Bad payload {\"a\":1}");
+            logger.LogInformationThrottled("key", TimeSpan.FromDays(1), "Bad payload {\"a\":1}"); // suppressed (1)
+            logger.LogInformationThrottled("key", TimeSpan.Zero, "Bad payload {\"a\":1}");
+
+            Assert.Contains(
+                KeyValuePair.Create<string, object?>("{OriginalFormat}", "Bad payload {\"a\":1} ({SuppressedCount} messages suppressed)"),
+                logger.Entries[^1].State!);
+        }
+        finally
+        {
+            Messages.Culture = null;
+        }
+    }
+
+    /// <summary>
+    /// Verifies that a template that already uses <c>{SuppressedCount}</c> keeps its own value, while the suppressed
+    /// count is published under a distinct name.
+    /// </summary>
+    [Fact]
+    public void LogThrottled_TemplateUsesSuppressedCount_SuppressedCountGetsDistinctName()
+    {
+        Messages.Culture = CultureInfo.InvariantCulture;
+        try
+        {
+            var logger = new FakeLogger();
+
+            logger.LogWarningThrottled("key", TimeSpan.FromDays(1), "Retry {SuppressedCount}", 5);
+            logger.LogWarningThrottled("key", TimeSpan.FromDays(1), "Retry {SuppressedCount}", 5); // suppressed (1)
+            logger.LogWarningThrottled("key", TimeSpan.Zero, "Retry {SuppressedCount}", 5);
+
+            KeyValuePair<string, object?>[] expected =
+            [
+                new("SuppressedCount", 5),
+                new("SuppressedCount_1", 1),
+                new("{OriginalFormat}", "Retry {SuppressedCount} ({SuppressedCount_1} messages suppressed)"),
+            ];
+            Assert.Equal("Retry 5 (1 messages suppressed)", logger.Entries[^1].Message);
+            Assert.Equal(expected, logger.Entries[^1].State);
+        }
+        finally
+        {
+            Messages.Culture = null;
+        }
+    }
+
     [Fact]
     public void LogErrorThrottled_WithException_LogsMessage()
     {
