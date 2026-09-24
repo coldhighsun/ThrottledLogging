@@ -35,7 +35,7 @@ The library has two source files plus a localized resources directory:
 **Key design decisions:**
 - `ConditionalWeakTable` means no explicit registration/disposal — throttlers are created on demand and cleaned up when the `ILogger` is GC'd.
 - `ThrottledLogger` also has a `public` constructor, used directly in unit tests to exercise `ShouldLog` without involving the static `_instances` table.
-- `ThrottledLogger.Configure(expiry, cleanupPeriod)` is a global static setting affecting all instances. Tests that rely on timing should avoid calling it, or restore defaults afterwards.
+- `ThrottledLogger.Configure(expiry, cleanupPeriod)` is a global static setting affecting all instances. It validates arguments before changing anything: `expiry` must be non-negative; `cleanupPeriod` must be at least 1 ms (`Timer` truncates to whole milliseconds) and at most 4294967294 ms (the `Timer` limit), or `Timeout.InfiniteTimeSpan` to disable cleanup. Tests that rely on timing should avoid calling it, or restore defaults afterwards.
 - Version is managed by [MinVer](https://github.com/adamralph/minver) from git tags (prefix `v`).
 - Central package management via `Directory.Packages.props`.
 - `WarningsAsErrors` is enabled globally.

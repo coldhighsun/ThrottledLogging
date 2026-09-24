@@ -96,6 +96,23 @@ public class ThrottledLogger
     }
 
     /// <summary>
+    /// The longest cleanup period accepted by <see cref="Configure(TimeSpan, TimeSpan)"/>, which is the longest period
+    /// supported by <see cref="Timer"/> (4294967294 milliseconds, about 49.7 days).
+    /// </summary>
+    private static readonly TimeSpan MaxCleanupPeriod = TimeSpan.FromMilliseconds(uint.MaxValue - 1);
+
+    /// <summary>
+    /// The shortest cleanup period accepted by <see cref="Configure(TimeSpan, TimeSpan)"/>. <see cref="Timer"/> truncates
+    /// periods to whole milliseconds, and a period that truncates to zero would run cleanup only once.
+    /// </summary>
+    private static readonly TimeSpan MinCleanupPeriod = TimeSpan.FromMilliseconds(1);
+
+    /// <summary>
+    /// Serializes <see cref="Configure(TimeSpan, TimeSpan)"/> calls, so the expiry and cleanup period are applied together.
+    /// </summary>
+    private static readonly Lock ConfigureLock = new();
+
+    /// <summary>
     /// Represents the timer used to schedule periodic cleanup operations.
     /// </summary>
     private static readonly Timer CleanupTimer;
@@ -135,11 +152,31 @@ public class ThrottledLogger
     /// so an entry is retained for at least its throttle interval. Avoid combining very long intervals
     /// (such as <see cref="TimeSpan.MaxValue"/>) with an unbounded set of keys, as memory then grows with the key count.
     /// </param>
-    /// <param name="cleanupPeriod">How often the background cleanup timer runs.</param>
+    /// <param name="cleanupPeriod">
+    /// How often the background cleanup timer runs, from 1 millisecond up to 4294967294 milliseconds (about 49.7 days).
+    /// Pass <see cref="Timeout.InfiniteTimeSpan"/> to disable cleanup.
+    /// </param>
+    /// <exception cref="ArgumentOutOfRangeException">
+    /// <paramref name="expiry"/> is negative, or <paramref name="cleanupPeriod"/> is less than 1 millisecond (other than
+    /// <see cref="Timeout.InfiniteTimeSpan"/>) or greater than 4294967294 milliseconds.
+    /// </exception>
     public static void Configure(TimeSpan expiry, TimeSpan cleanupPeriod)
     {
-        _expiry = expiry;
-        CleanupTimer.Change(cleanupPeriod, cleanupPeriod);
+        ArgumentOutOfRangeException.ThrowIfLessThan(expiry, TimeSpan.Zero);
+
+        if (cleanupPeriod != Timeout.InfiniteTimeSpan)
+        {
+            ArgumentOutOfRangeException.ThrowIfLessThan(cleanupPeriod, MinCleanupPeriod);
+            ArgumentOutOfRangeException.ThrowIfGreaterThan(cleanupPeriod, MaxCleanupPeriod);
+        }
+
+        // Applied together so concurrent calls cannot pair one call's expiry with another's period. The expiry is written
+        // before the timer is changed; the timer's internal locking publishes it to the callback thread.
+        lock (ConfigureLock)
+        {
+            _expiry = expiry;
+            CleanupTimer.Change(cleanupPeriod, cleanupPeriod);
+        }
     }
 
     /// <summary>

@@ -332,4 +332,129 @@ public class ThrottledLoggerTests
         Assert.True(found);
         Assert.Equal(2, suppressed);
     }
+
+    /// <summary>
+    /// Cleanup periods that <see cref="ThrottledLogger.Configure(TimeSpan, TimeSpan)"/> must reject: zero, periods under
+    /// 1 millisecond that the timer truncates to zero, negative values other than <see cref="Timeout.InfiniteTimeSpan"/>,
+    /// and values beyond the longest period a timer supports.
+    /// </summary>
+    public static TheoryData<TimeSpan> InvalidCleanupPeriods =>
+    [
+        TimeSpan.Zero,
+        TimeSpan.FromMicroseconds(500),
+        TimeSpan.FromMilliseconds(-2),
+        TimeSpan.FromSeconds(-1),
+        TimeSpan.FromMilliseconds(uint.MaxValue),
+        TimeSpan.FromDays(60),
+    ];
+
+    /// <summary>
+    /// Verifies that a negative expiry is rejected.
+    /// </summary>
+    [Fact]
+    public void Configure_NegativeExpiry_ThrowsArgumentOutOfRangeException()
+    {
+        try
+        {
+            var exception = Assert.Throws<ArgumentOutOfRangeException>(
+                () => ThrottledLogger.Configure(expiry: TimeSpan.FromSeconds(-1), cleanupPeriod: TimeSpan.FromHours(1)));
+
+            Assert.Equal("expiry", exception.ParamName);
+        }
+        finally
+        {
+            ThrottledLogger.Configure(expiry: TimeSpan.FromHours(1), cleanupPeriod: TimeSpan.FromHours(1));
+        }
+    }
+
+    /// <summary>
+    /// Verifies that a cleanup period the timer cannot run periodically with is rejected, reporting the <c>cleanupPeriod</c> parameter.
+    /// </summary>
+    /// <param name="cleanupPeriod">The invalid cleanup period to pass.</param>
+    [Theory]
+    [MemberData(nameof(InvalidCleanupPeriods))]
+    public void Configure_InvalidCleanupPeriod_ThrowsArgumentOutOfRangeException(TimeSpan cleanupPeriod)
+    {
+        try
+        {
+            var exception = Assert.Throws<ArgumentOutOfRangeException>(
+                () => ThrottledLogger.Configure(expiry: TimeSpan.FromHours(1), cleanupPeriod: cleanupPeriod));
+
+            Assert.Equal("cleanupPeriod", exception.ParamName);
+        }
+        finally
+        {
+            ThrottledLogger.Configure(expiry: TimeSpan.FromHours(1), cleanupPeriod: TimeSpan.FromHours(1));
+        }
+    }
+
+    /// <summary>
+    /// Verifies that the shortest and longest cleanup periods the timer supports are accepted.
+    /// </summary>
+    /// <param name="milliseconds">The cleanup period, in milliseconds.</param>
+    [Theory]
+    [InlineData(1d)]
+    [InlineData(uint.MaxValue - 1d)]
+    public void Configure_BoundaryCleanupPeriod_DoesNotThrow(double milliseconds)
+    {
+        try
+        {
+            var exception = Record.Exception(
+                () => ThrottledLogger.Configure(expiry: TimeSpan.FromHours(1), cleanupPeriod: TimeSpan.FromMilliseconds(milliseconds)));
+
+            Assert.Null(exception);
+        }
+        finally
+        {
+            ThrottledLogger.Configure(expiry: TimeSpan.FromHours(1), cleanupPeriod: TimeSpan.FromHours(1));
+        }
+    }
+
+    /// <summary>
+    /// Verifies that a rejected call leaves the previously configured settings in effect.
+    /// </summary>
+    [Fact]
+    public void Configure_InvalidCleanupPeriod_KeepsPreviousSettings()
+    {
+        ThrottledLogger.Configure(expiry: TimeSpan.FromMilliseconds(1), cleanupPeriod: TimeSpan.FromMilliseconds(50));
+        try
+        {
+            Assert.Throws<ArgumentOutOfRangeException>(
+                () => ThrottledLogger.Configure(expiry: TimeSpan.FromHours(1), cleanupPeriod: TimeSpan.Zero));
+
+            var logger = new FakeLogger();
+            logger.LogInformationThrottled("key", TimeSpan.FromMilliseconds(20), "Msg"); // entry created
+
+            Thread.Sleep(200); // the short expiry and period must still apply, so cleanup removes the entry
+
+            Assert.False(logger.TryGetThrottledSuppressedCount("key", out _));
+        }
+        finally
+        {
+            ThrottledLogger.Configure(expiry: TimeSpan.FromHours(1), cleanupPeriod: TimeSpan.FromHours(1));
+        }
+    }
+
+    /// <summary>
+    /// Verifies that <see cref="Timeout.InfiniteTimeSpan"/> is accepted as the cleanup period and disables cleanup.
+    /// </summary>
+    [Fact]
+    public void Configure_InfiniteCleanupPeriod_DisablesCleanup()
+    {
+        try
+        {
+            ThrottledLogger.Configure(expiry: TimeSpan.FromMilliseconds(1), cleanupPeriod: Timeout.InfiniteTimeSpan);
+
+            var logger = new FakeLogger();
+            logger.LogInformationThrottled("key", TimeSpan.FromMilliseconds(20), "Msg"); // entry created
+
+            Thread.Sleep(200); // the entry is expired and its window has closed, but cleanup never runs
+
+            Assert.True(logger.TryGetThrottledSuppressedCount("key", out _));
+        }
+        finally
+        {
+            ThrottledLogger.Configure(expiry: TimeSpan.FromHours(1), cleanupPeriod: TimeSpan.FromHours(1));
+        }
+    }
 }
