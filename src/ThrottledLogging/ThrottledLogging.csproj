@@ -23,6 +23,10 @@
     </ItemGroup>
 
     <ItemGroup>
+        <InternalsVisibleTo Include="ThrottledLogging.Tests" />
+    </ItemGroup>
+
+    <ItemGroup>
       <Compile Update="Resources\Messages.Designer.cs">
         <DesignTime>True</DesignTime>
         <AutoGen>True</AutoGen>

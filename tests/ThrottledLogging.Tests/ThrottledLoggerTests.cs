@@ -5,26 +5,133 @@ namespace ThrottledLogging.Tests;
 [Collection("Sequential")]
 public class ThrottledLoggerTests
 {
+    /// <summary>
+    /// Verifies that cleanup removes an entry once it is idle beyond the expiry and its throttle window has closed.
+    /// </summary>
     [Fact]
-    public void Configure_ShorterExpiry_CausesCleanupToRemoveEntries()
+    public void Configure_ShorterExpiry_CleanupRemovesIdleEntriesWhoseIntervalHasElapsed()
     {
         ThrottledLogger.Configure(expiry: TimeSpan.FromMilliseconds(1), cleanupPeriod: TimeSpan.FromMilliseconds(50));
         try
         {
             var logger = new FakeLogger();
-            logger.LogInformationThrottled("key", TimeSpan.FromDays(1), "Msg"); // entry created, throttled
+            logger.LogInformationThrottled("key", TimeSpan.FromMilliseconds(20), "Msg"); // entry created
 
-            Thread.Sleep(200); // wait for cleanup to run and expire the entry
+            Thread.Sleep(200); // wait for the interval to elapse and cleanup to run
 
-            // After expiry the entry is gone, so the next call should be allowed as a fresh first call
-            logger.LogInformationThrottled("key", TimeSpan.FromDays(1), "Msg");
+            var found = logger.TryGetThrottledSuppressedCount("key", out _);
 
-            Assert.Equal(2, logger.Entries.Count);
+            Assert.False(found);
         }
         finally
         {
             ThrottledLogger.Configure(expiry: TimeSpan.FromHours(1), cleanupPeriod: TimeSpan.FromHours(1));
         }
+    }
+
+    /// <summary>
+    /// Verifies that an expiry shorter than the throttle interval does not let cleanup evict an entry
+    /// whose throttle window is still open.
+    /// </summary>
+    [Fact]
+    public void Configure_ExpiryShorterThanInterval_CleanupDoesNotBreakThrottling()
+    {
+        ThrottledLogger.Configure(expiry: TimeSpan.FromMilliseconds(1), cleanupPeriod: TimeSpan.FromMilliseconds(50));
+        try
+        {
+            var logger = new FakeLogger();
+            logger.LogInformationThrottled("key", TimeSpan.FromDays(1), "Msg"); // allowed
+            logger.LogInformationThrottled("key", TimeSpan.FromDays(1), "Msg"); // suppressed (count=1)
+
+            Thread.Sleep(200); // let cleanup run several times while the throttle window is still open
+
+            logger.LogInformationThrottled("key", TimeSpan.FromDays(1), "Msg"); // must still be suppressed (count=2)
+
+            Assert.Single(logger.Entries);
+            Assert.True(logger.TryGetThrottledSuppressedCount("key", out var suppressed));
+            Assert.Equal(2, suppressed);
+        }
+        finally
+        {
+            ThrottledLogger.Configure(expiry: TimeSpan.FromHours(1), cleanupPeriod: TimeSpan.FromHours(1));
+        }
+    }
+
+    /// <summary>
+    /// Verifies that a shorter interval passed by a later suppressed call does not shrink the stored
+    /// throttle window, so cleanup keeps the entry while the longer window is still open.
+    /// </summary>
+    [Fact]
+    public void Configure_ShorterIntervalOnSuppressedCall_CleanupKeepsLongerWindow()
+    {
+        ThrottledLogger.Configure(expiry: TimeSpan.FromMilliseconds(1), cleanupPeriod: TimeSpan.FromMilliseconds(50));
+        try
+        {
+            var logger = new FakeLogger();
+            logger.LogInformationThrottled("key", TimeSpan.FromDays(1), "Msg"); // allowed
+            logger.LogInformationThrottled("key", TimeSpan.FromMilliseconds(100), "Msg"); // suppressed (count=1)
+
+            Thread.Sleep(300); // the 100 ms window has closed, but the 1-day window is still open
+
+            Assert.True(logger.TryGetThrottledSuppressedCount("key", out var suppressed));
+            Assert.Equal(1, suppressed);
+        }
+        finally
+        {
+            ThrottledLogger.Configure(expiry: TimeSpan.FromHours(1), cleanupPeriod: TimeSpan.FromHours(1));
+        }
+    }
+
+    /// <summary>
+    /// Verifies that cleanup measures idle time from the most recent call (including suppressed ones),
+    /// not from the last emitted log, so a recently suppressed key is kept after its interval elapses.
+    /// </summary>
+    [Fact]
+    public void Configure_RecentlySuppressedEntry_NotRemovedAfterIntervalElapses()
+    {
+        ThrottledLogger.Configure(expiry: TimeSpan.FromSeconds(3), cleanupPeriod: TimeSpan.FromMilliseconds(20));
+        try
+        {
+            var logger = new FakeLogger();
+            var interval = TimeSpan.FromSeconds(3);
+
+            logger.LogInformationThrottled("key", interval, "Msg"); // allowed at t=0
+            Thread.Sleep(TimeSpan.FromSeconds(1.5));
+            logger.LogInformationThrottled("key", interval, "Msg"); // suppressed at t=1.5s, refreshes idle time
+
+            // At t=3.5s the interval has elapsed and the last log is older than the expiry,
+            // but the key was seen only 2s ago, so it is not idle yet and must be kept.
+            Thread.Sleep(TimeSpan.FromSeconds(2));
+
+            Assert.True(logger.TryGetThrottledSuppressedCount("key", out var suppressed));
+            Assert.Equal(1, suppressed);
+        }
+        finally
+        {
+            ThrottledLogger.Configure(expiry: TimeSpan.FromHours(1), cleanupPeriod: TimeSpan.FromHours(1));
+        }
+    }
+
+    /// <summary>
+    /// Verifies that a count below <see cref="int.MaxValue"/> is incremented by one.
+    /// </summary>
+    [Fact]
+    public void IncrementSaturating_BelowMaxValue_IncrementsByOne()
+    {
+        var result = ThrottledLogger.IncrementSaturating(41);
+
+        Assert.Equal(42, result);
+    }
+
+    /// <summary>
+    /// Verifies that a count at <see cref="int.MaxValue"/> saturates instead of overflowing to a negative value.
+    /// </summary>
+    [Fact]
+    public void IncrementSaturating_AtMaxValue_DoesNotOverflow()
+    {
+        var result = ThrottledLogger.IncrementSaturating(int.MaxValue);
+
+        Assert.Equal(int.MaxValue, result);
     }
 
     [Fact]

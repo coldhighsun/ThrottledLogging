@@ -12,19 +12,24 @@ namespace ThrottledLogging;
 public class ThrottledLogger
 {
     /// <summary>
-    /// Represents a tracked log entry with its last log timestamp and the number of suppressed occurrences.
+    /// Represents a tracked log entry with its last log timestamp, the number of suppressed occurrences,
+    /// the timestamp of the most recent call, and the longest throttle interval used since the last log.
     /// </summary>
     private struct Entry : IEquatable<Entry>
     {
         /// <summary>
-        /// Initializes a new instance of the <see cref="Entry"/> struct with the specified last log timestamp and suppressed count.
+        /// Initializes a new instance of the <see cref="Entry"/> struct with the specified field values.
         /// </summary>
         /// <param name="lastLogTick">The <see cref="Stopwatch"/> timestamp when the key was last logged.</param>
         /// <param name="suppressedCount">The number of log calls suppressed since the last successful log.</param>
-        public Entry(long lastLogTick, int suppressedCount)
+        /// <param name="lastSeenTick">The <see cref="Stopwatch"/> timestamp of the most recent call for the key, whether logged or suppressed.</param>
+        /// <param name="interval">The longest throttle interval passed for the key since it was last logged.</param>
+        public Entry(long lastLogTick, int suppressedCount, long lastSeenTick, TimeSpan interval)
         {
             LastLogTick = lastLogTick;
             SuppressedCount = suppressedCount;
+            LastSeenTick = lastSeenTick;
+            Interval = interval;
         }
 
         /// <summary>
@@ -44,15 +49,37 @@ public class ThrottledLogger
         }
 
         /// <summary>
+        /// The <see cref="Stopwatch"/> timestamp of the most recent call for the key, whether logged or suppressed.
+        /// Used by cleanup to measure how long the key has been idle.
+        /// </summary>
+        public long LastSeenTick
+        {
+            get;
+        }
+
+        /// <summary>
+        /// The longest throttle interval passed for the key since it was last logged.
+        /// Used by cleanup to avoid removing an entry whose throttle window is still open.
+        /// </summary>
+        public TimeSpan Interval
+        {
+            get;
+        }
+
+        /// <summary>
         /// Determines whether this instance and another <see cref="Entry"/> have the same field values.
         /// </summary>
         /// <param name="other">The other <see cref="Entry"/> to compare against.</param>
-        /// <returns><see langword="true"/> if both instances have equal <see cref="LastLogTick"/> and <see cref="SuppressedCount"/> values; otherwise <see langword="false"/>.</returns>
+        /// <returns><see langword="true"/> if all fields of both instances are equal; otherwise <see langword="false"/>.</returns>
         /// <remarks>
         /// Implementing <see cref="IEquatable{T}"/> lets <see cref="ConcurrentDictionary{TKey, TValue}.TryUpdate(TKey, TValue, TValue)"/>
         /// use the non-boxing generic comparer instead of falling back to a boxing <see cref="object.Equals(object?)"/> comparison.
         /// </remarks>
-        public bool Equals(Entry other) => LastLogTick == other.LastLogTick && SuppressedCount == other.SuppressedCount;
+        public bool Equals(Entry other)
+            => LastLogTick == other.LastLogTick
+               && SuppressedCount == other.SuppressedCount
+               && LastSeenTick == other.LastSeenTick
+               && Interval == other.Interval;
 
         /// <summary>
         /// Determines whether this instance and a specified object, which must also be an <see cref="Entry"/>, have the same field values.
@@ -62,10 +89,10 @@ public class ThrottledLogger
         public override bool Equals(object? obj) => obj is Entry other && Equals(other);
 
         /// <summary>
-        /// Returns a hash code based on <see cref="LastLogTick"/> and <see cref="SuppressedCount"/>.
+        /// Returns a hash code based on all fields of the entry.
         /// </summary>
         /// <returns>A hash code for the current instance.</returns>
-        public override int GetHashCode() => HashCode.Combine(LastLogTick, SuppressedCount);
+        public override int GetHashCode() => HashCode.Combine(LastLogTick, SuppressedCount, LastSeenTick, Interval);
     }
 
     /// <summary>
@@ -102,7 +129,12 @@ public class ThrottledLogger
     /// <summary>
     /// Configures the global expiry threshold and cleanup timer period for all <see cref="ThrottledLogger"/> instances.
     /// </summary>
-    /// <param name="expiry">How long an entry must be idle before it is eligible for cleanup.</param>
+    /// <param name="expiry">
+    /// How long an entry must be idle (no logged or suppressed calls) before it is eligible for cleanup.
+    /// Entries whose throttle interval has not yet elapsed are never removed, regardless of this value,
+    /// so an entry is retained for at least its throttle interval. Avoid combining very long intervals
+    /// (such as <see cref="TimeSpan.MaxValue"/>) with an unbounded set of keys, as memory then grows with the key count.
+    /// </param>
     /// <param name="cleanupPeriod">How often the background cleanup timer runs.</param>
     public static void Configure(TimeSpan expiry, TimeSpan cleanupPeriod)
     {
@@ -134,7 +166,13 @@ public class ThrottledLogger
             {
                 if (Stopwatch.GetElapsedTime(existing.LastLogTick, tick) < interval)
                 {
-                    if (_tracker.TryUpdate(key, new Entry(existing.LastLogTick, existing.SuppressedCount + 1), existing))
+                    var suppressedEntry = new Entry(
+                        existing.LastLogTick,
+                        IncrementSaturating(existing.SuppressedCount),
+                        Math.Max(existing.LastSeenTick, tick),
+                        existing.Interval > interval ? existing.Interval : interval);
+
+                    if (_tracker.TryUpdate(key, suppressedEntry, existing))
                     {
                         suppressedCount = 0;
                         return false;
@@ -143,7 +181,7 @@ public class ThrottledLogger
                     continue;
                 }
 
-                if (_tracker.TryUpdate(key, new Entry(tick, 0), existing))
+                if (_tracker.TryUpdate(key, new Entry(tick, 0, Math.Max(existing.LastSeenTick, tick), interval), existing))
                 {
                     suppressedCount = existing.SuppressedCount;
                     return true;
@@ -152,7 +190,7 @@ public class ThrottledLogger
                 continue;
             }
 
-            if (_tracker.TryAdd(key, new Entry(tick, 0)))
+            if (_tracker.TryAdd(key, new Entry(tick, 0, tick, interval)))
             {
                 suppressedCount = 0;
                 return true;
@@ -185,6 +223,14 @@ public class ThrottledLogger
     }
 
     /// <summary>
+    /// Increments a suppressed count by one, saturating at <see cref="int.MaxValue"/> instead of overflowing.
+    /// </summary>
+    /// <param name="count">The current suppressed count.</param>
+    /// <returns><paramref name="count"/> + 1, or <see cref="int.MaxValue"/> if <paramref name="count"/> is already at the maximum.</returns>
+    internal static int IncrementSaturating(int count)
+        => count == int.MaxValue ? count : count + 1;
+
+    /// <summary>
     /// Returns the <see cref="ThrottledLogger"/> associated with the given <paramref name="logger"/>,
     /// creating one if it does not yet exist.
     /// </summary>
@@ -203,29 +249,23 @@ public class ThrottledLogger
     }
 
     /// <summary>
-    /// Removes entries from the tracker whose age exceeds the configured expiry threshold.
+    /// Removes entries that have been idle longer than the configured expiry threshold and whose throttle window has closed.
     /// </summary>
     private void Cleanup()
     {
         var tick = Stopwatch.GetTimestamp();
-        List<string>? expiredKeys = null;
+        var expiry = _expiry;
 
         foreach (var kv in _tracker)
         {
-            if (Stopwatch.GetElapsedTime(kv.Value.LastLogTick, tick) > _expiry)
+            var entry = kv.Value;
+
+            if (Stopwatch.GetElapsedTime(entry.LastSeenTick, tick) > expiry
+                && Stopwatch.GetElapsedTime(entry.LastLogTick, tick) >= entry.Interval)
             {
-                (expiredKeys ??= new List<string>()).Add(kv.Key);
+                // Removes only if the entry is unchanged since it was read, so a concurrent ShouldLog update is never discarded.
+                _tracker.TryRemove(kv);
             }
-        }
-
-        if (expiredKeys is null)
-        {
-            return;
-        }
-
-        foreach (var k in expiredKeys)
-        {
-            _tracker.TryRemove(k, out _);
         }
     }
 }
