@@ -140,7 +140,13 @@ public class ThrottledLogger
         var defaultCleanupPeriod = TimeSpan.FromHours(1);
 
         _expiry = defaultCleanupPeriod;
-        CleanupTimer = new(OnCleanupTimer, null, defaultCleanupPeriod, defaultCleanupPeriod);
+
+        // Suppresses flow so the timer does not capture, and keep alive forever, the execution context
+        // (AsyncLocal values such as Activity.Current) of whichever caller happens to trigger type initialization.
+        using (ExecutionContext.SuppressFlow())
+        {
+            CleanupTimer = new(OnCleanupTimer, null, defaultCleanupPeriod, defaultCleanupPeriod);
+        }
     }
 
     /// <summary>
