@@ -293,6 +293,42 @@ public class ThrottledLoggerTests
         Assert.Equal(0, suppressed);
     }
 
+    /// <summary>
+    /// Verifies that a negative interval is treated like a zero interval and never suppresses.
+    /// </summary>
+    [Fact]
+    public void ShouldLog_NegativeInterval_AlwaysReturnsTrue()
+    {
+        var throttler = new ThrottledLogger();
+
+        throttler.ShouldLog("key", TimeSpan.FromSeconds(-1), out _);
+        var result = throttler.ShouldLog("key", TimeSpan.FromSeconds(-1), out var suppressed);
+
+        Assert.True(result);
+        Assert.Equal(0, suppressed);
+    }
+
+    /// <summary>
+    /// Verifies that concurrent zero-interval calls are never suppressed, even when a call observes an entry
+    /// already updated by another call with a later timestamp.
+    /// </summary>
+    [Fact]
+    public void ShouldLog_ConcurrentZeroIntervalCalls_NeverSuppressed()
+    {
+        var throttler = new ThrottledLogger();
+        var suppressedCalls = 0;
+
+        Parallel.For(0, 100_000, _ =>
+        {
+            if (!throttler.ShouldLog("key", TimeSpan.Zero, out _))
+            {
+                Interlocked.Increment(ref suppressedCalls);
+            }
+        });
+
+        Assert.Equal(0, suppressedCalls);
+    }
+
     [Fact]
     public void Reset_RemovesTrackedState_SoNextCallIsTreatedAsFirst()
     {
