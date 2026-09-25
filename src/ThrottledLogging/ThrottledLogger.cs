@@ -1,6 +1,7 @@
 using Microsoft.Extensions.Logging;
 using System.Collections.Concurrent;
 using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 
 namespace ThrottledLogging;
@@ -305,6 +306,15 @@ public class ThrottledLogger
     /// </summary>
     internal static ThrottledLogger GetOrCreate(ILogger logger)
         => Instances.GetOrCreateValue(logger);
+
+    /// <summary>
+    /// Gets the <see cref="ThrottledLogger"/> associated with the given <paramref name="logger"/>, without creating one.
+    /// </summary>
+    /// <param name="logger">The logger whose throttler to get.</param>
+    /// <param name="throttler">The associated throttler, if one exists.</param>
+    /// <returns><see langword="true"/> if a throttler exists for <paramref name="logger"/>; otherwise <see langword="false"/>.</returns>
+    internal static bool TryGet(ILogger logger, [NotNullWhen(true)] out ThrottledLogger? throttler)
+        => Instances.TryGetValue(logger, out throttler);
 
     /// <summary>
     /// Timer callback that triggers cleanup of expired entries across all registered throttler instances.
