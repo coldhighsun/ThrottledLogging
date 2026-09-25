@@ -151,7 +151,10 @@ public class ThrottledLogger
     /// <param name="expiry">
     /// How long an entry must be idle (no logged or suppressed calls) before it is eligible for cleanup.
     /// Entries whose throttle interval has not yet elapsed are never removed, regardless of this value,
-    /// so an entry is retained for at least its throttle interval. Avoid combining very long intervals
+    /// so an entry is retained for at least its throttle interval. If one key is used with different intervals, the
+    /// retained interval is the one passed to the most recently logged call (or longer, if a later suppressed call
+    /// passed a longer one), so an expiry shorter than the longest interval may let that longer interval end early.
+    /// Avoid combining very long intervals
     /// (such as <see cref="TimeSpan.MaxValue"/>) with an unbounded set of keys, as memory then grows with the key count.
     /// An entry removed by cleanup discards any suppressed count not yet reported, so the next message for that key
     /// is logged without the suppressed-count suffix.
