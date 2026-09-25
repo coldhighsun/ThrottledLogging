@@ -142,13 +142,7 @@ public class ThrottledLogger
         var defaultCleanupPeriod = TimeSpan.FromHours(1);
 
         _expiryTicks = defaultExpiry.Ticks;
-
-        // Suppresses flow so the timer does not capture, and keep alive forever, the execution context
-        // (AsyncLocal values such as Activity.Current) of whichever caller happens to trigger type initialization.
-        using (ExecutionContext.SuppressFlow())
-        {
-            CleanupTimer = new(OnCleanupTimer, null, defaultCleanupPeriod, defaultCleanupPeriod);
-        }
+        CleanupTimer = CreateCleanupTimer(OnCleanupTimer, defaultCleanupPeriod);
     }
 
     /// <summary>
@@ -278,6 +272,29 @@ public class ThrottledLogger
     /// <returns><paramref name="count"/> + 1, or <see cref="int.MaxValue"/> if <paramref name="count"/> is already at the maximum.</returns>
     internal static int IncrementSaturating(int count)
         => count == int.MaxValue ? count : count + 1;
+
+    /// <summary>
+    /// Creates a timer that invokes <paramref name="callback"/> every <paramref name="period"/>, without capturing
+    /// the caller's execution context.
+    /// </summary>
+    /// <param name="callback">The method to invoke on each tick.</param>
+    /// <param name="period">The due time and period of the timer.</param>
+    /// <returns>The started timer.</returns>
+    internal static Timer CreateCleanupTimer(TimerCallback callback, TimeSpan period)
+    {
+        // Without suppressing flow the timer would capture, and keep alive forever, the execution context (AsyncLocal
+        // values such as Activity.Current) of whichever caller happens to trigger type initialization. SuppressFlow
+        // throws if flow is already suppressed, in which case there is nothing to capture anyway.
+        if (ExecutionContext.IsFlowSuppressed())
+        {
+            return new(callback, null, period, period);
+        }
+
+        using (ExecutionContext.SuppressFlow())
+        {
+            return new(callback, null, period, period);
+        }
+    }
 
     /// <summary>
     /// Returns the <see cref="ThrottledLogger"/> associated with the given <paramref name="logger"/>,
