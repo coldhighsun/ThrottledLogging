@@ -446,4 +446,36 @@ public class ThrottledLoggerExtensionsTests
         Assert.True(found);
         Assert.Equal(2, suppressed);
     }
+
+    [Fact]
+    public void LogWarningThrottled_NullLogger_ThrowsArgumentNullException()
+    {
+        ILogger logger = null!;
+
+        var exception = Assert.Throws<ArgumentNullException>(
+            () => logger.LogWarningThrottled("key", TimeSpan.FromMinutes(1), "Msg"));
+
+        Assert.Equal("logger", exception.ParamName);
+    }
+
+    [Fact]
+    public void ResetThrottle_NullLogger_ThrowsArgumentNullException()
+    {
+        ILogger logger = null!;
+
+        var exception = Assert.Throws<ArgumentNullException>(() => logger.ResetThrottle("key"));
+
+        Assert.Equal("logger", exception.ParamName);
+    }
+
+    [Fact]
+    public void TryGetThrottledSuppressedCount_NullLogger_ThrowsArgumentNullException()
+    {
+        ILogger logger = null!;
+
+        var exception = Assert.Throws<ArgumentNullException>(
+            () => logger.TryGetThrottledSuppressedCount("key", out _));
+
+        Assert.Equal("logger", exception.ParamName);
+    }
 }

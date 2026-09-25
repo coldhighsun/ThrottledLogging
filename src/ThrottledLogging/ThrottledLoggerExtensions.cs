@@ -230,8 +230,13 @@ public static class ThrottledLoggerExtensions
     /// </summary>
     /// <param name="logger">The logger instance.</param>
     /// <param name="key">The throttling key to reset.</param>
+    /// <exception cref="ArgumentNullException"><paramref name="logger"/> is <see langword="null"/>.</exception>
     public static void ResetThrottle(this ILogger logger, string key)
-        => GetManager(logger).Reset(key);
+    {
+        ArgumentNullException.ThrowIfNull(logger);
+
+        GetManager(logger).Reset(key);
+    }
 
     /// <summary>
     /// Attempts to get the number of log calls currently suppressed for <paramref name="key"/> on the given logger.
@@ -240,8 +245,13 @@ public static class ThrottledLoggerExtensions
     /// <param name="key">The throttling key to query.</param>
     /// <param name="suppressedCount">The number of suppressed calls recorded for the key, if tracked.</param>
     /// <returns><see langword="true"/> if the key is currently tracked; otherwise <see langword="false"/>.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="logger"/> is <see langword="null"/>.</exception>
     public static bool TryGetThrottledSuppressedCount(this ILogger logger, string key, out int suppressedCount)
-        => GetManager(logger).TryGetSuppressedCount(key, out suppressedCount);
+    {
+        ArgumentNullException.ThrowIfNull(logger);
+
+        return GetManager(logger).TryGetSuppressedCount(key, out suppressedCount);
+    }
 
     /// <summary>
     /// Writes a log entry only when the throttling policy allows it.
@@ -253,6 +263,7 @@ public static class ThrottledLoggerExtensions
     /// <param name="exception">The exception to log, if any.</param>
     /// <param name="messageTemplate">The message template.</param>
     /// <param name="args">The message template arguments.</param>
+    /// <exception cref="ArgumentNullException"><paramref name="logger"/> is <see langword="null"/>.</exception>
     private static void LogThrottled(
         ILogger logger,
         LogLevel level,
@@ -262,6 +273,8 @@ public static class ThrottledLoggerExtensions
         string? messageTemplate,
         ReadOnlySpan<object?> args)
     {
+        ArgumentNullException.ThrowIfNull(logger);
+
         if (!logger.IsEnabled(level))
         {
             return;
