@@ -207,7 +207,9 @@ public class ThrottledLogger
         {
             if (_tracker.TryGetValue(key, out var existing))
             {
-                if (Stopwatch.GetElapsedTime(existing.LastLogTick, tick) < interval)
+                // A non-positive interval always logs. Checked explicitly because the elapsed time is negative when a
+                // concurrent call with a later timestamp has already updated the entry.
+                if (interval > TimeSpan.Zero && Stopwatch.GetElapsedTime(existing.LastLogTick, tick) < interval)
                 {
                     var suppressedEntry = new Entry(
                         existing.LastLogTick,
@@ -224,7 +226,7 @@ public class ThrottledLogger
                     continue;
                 }
 
-                if (_tracker.TryUpdate(key, new Entry(tick, 0, Math.Max(existing.LastSeenTick, tick), interval), existing))
+                if (_tracker.TryUpdate(key, new Entry(Math.Max(existing.LastLogTick, tick), 0, Math.Max(existing.LastSeenTick, tick), interval), existing))
                 {
                     suppressedCount = existing.SuppressedCount;
                     return true;
