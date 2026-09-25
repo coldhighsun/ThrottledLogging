@@ -103,4 +103,27 @@ public class SuppressedLogValuesTests
         Assert.Equal(expected, state);
         Assert.Equal("Retry 5 6 (3 messages suppressed)", state.ToString());
     }
+
+    /// <summary>
+    /// Verifies that Simplified Chinese cultures other than zh-CN also fall back to the Chinese suffix.
+    /// </summary>
+    /// <param name="cultureName">The name of the culture to render the suffix in.</param>
+    [Theory]
+    [InlineData("zh-CN")]
+    [InlineData("zh-Hans")]
+    [InlineData("zh-SG")]
+    public void ToString_SimplifiedChineseCulture_UsesChineseSuffix(string cultureName)
+    {
+        Messages.Culture = new CultureInfo(cultureName);
+        try
+        {
+            var state = SuppressedLogValues.Create("Msg", [], 3);
+
+            Assert.Equal("Msg (3个消息被隐藏)", state.ToString());
+        }
+        finally
+        {
+            Messages.Culture = null;
+        }
+    }
 }
