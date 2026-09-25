@@ -5,9 +5,15 @@ using Xunit;
 
 namespace ThrottledLogging.Tests;
 
+/// <summary>
+/// Tests for <see cref="ThrottledLoggerExtensions"/>.
+/// </summary>
 [Collection("Sequential")]
 public class ThrottledLoggerExtensionsTests
 {
+    /// <summary>
+    /// Verifies that the first throttled call is logged at its level with the formatted message.
+    /// </summary>
     [Fact]
     public void LogInformationThrottled_FirstCall_LogsMessage()
     {
@@ -20,6 +26,9 @@ public class ThrottledLoggerExtensionsTests
         Assert.Contains("world", logger.Entries[0].Message);
     }
 
+    /// <summary>
+    /// Verifies that a repeated call within the interval is not logged.
+    /// </summary>
     [Fact]
     public void LogInformationThrottled_WithinInterval_DoesNotLog()
     {
@@ -31,6 +40,9 @@ public class ThrottledLoggerExtensionsTests
         Assert.Single(logger.Entries);
     }
 
+    /// <summary>
+    /// Verifies that the message logged after suppression reports how many calls were suppressed.
+    /// </summary>
     [Fact]
     public void LogThrottled_AfterSuppression_AppendsSuppressedCount()
     {
@@ -56,6 +68,9 @@ public class ThrottledLoggerExtensionsTests
         }
     }
 
+    /// <summary>
+    /// Verifies that the suppressed-count suffix follows the current culture rather than the culture first cached for a template.
+    /// </summary>
     [Fact]
     public void LogThrottled_AfterSuppression_UsesCurrentCultureNotFirstCachedCulture()
     {
@@ -86,6 +101,10 @@ public class ThrottledLoggerExtensionsTests
         }
     }
 
+    /// <summary>
+    /// Verifies that each level-specific method logs at its own level.
+    /// </summary>
+    /// <param name="level">The level to log at.</param>
     [Theory]
     [InlineData(LogLevel.Trace)]
     [InlineData(LogLevel.Debug)]
@@ -128,6 +147,9 @@ public class ThrottledLoggerExtensionsTests
         Assert.Equal(level, logger.Entries[0].Level);
     }
 
+    /// <summary>
+    /// Verifies that the same key is throttled independently on different loggers.
+    /// </summary>
     [Fact]
     public void LogThrottled_DifferentLoggers_ThrottledIndependently()
     {
@@ -142,6 +164,9 @@ public class ThrottledLoggerExtensionsTests
         Assert.Single(logger2.Entries);
     }
 
+    /// <summary>
+    /// Verifies that a call filtered out by the log level does not start a throttle window.
+    /// </summary>
     [Fact]
     public void LogThrottled_DisabledLogLevel_DoesNotConsumeThrottleQuota()
     {
@@ -157,6 +182,9 @@ public class ThrottledLoggerExtensionsTests
         Assert.Single(logger.Entries);
     }
 
+    /// <summary>
+    /// Verifies that a call at a disabled level is not logged.
+    /// </summary>
     [Fact]
     public void LogThrottled_DisabledLogLevel_DoesNotLog()
     {
@@ -167,6 +195,9 @@ public class ThrottledLoggerExtensionsTests
         Assert.Empty(logger.Entries);
     }
 
+    /// <summary>
+    /// Verifies that a <see langword="null"/> template still gets the suppressed count appended after suppression.
+    /// </summary>
     [Fact]
     public void LogThrottled_NullTemplate_AppendsSuppressedCount()
     {
@@ -403,6 +434,9 @@ public class ThrottledLoggerExtensionsTests
         }
     }
 
+    /// <summary>
+    /// Verifies that the overload taking an exception logs the formatted message at the error level.
+    /// </summary>
     [Fact]
     public void LogErrorThrottled_WithException_LogsMessage()
     {
@@ -416,6 +450,9 @@ public class ThrottledLoggerExtensionsTests
         Assert.Contains("world", logger.Entries[0].Message);
     }
 
+    /// <summary>
+    /// Verifies that resetting a key lets the next call be logged immediately.
+    /// </summary>
     [Fact]
     public void ResetThrottle_AllowsImmediateReLog()
     {
@@ -431,6 +468,9 @@ public class ThrottledLoggerExtensionsTests
         Assert.Equal(2, logger.Entries.Count);
     }
 
+    /// <summary>
+    /// Verifies that the suppressed count of a key can be queried without logging.
+    /// </summary>
     [Fact]
     public void TryGetThrottledSuppressedCount_TracksSuppressedCalls()
     {
@@ -523,6 +563,9 @@ public class ThrottledLoggerExtensionsTests
         Assert.Equal("key", exception.ParamName);
     }
 
+    /// <summary>
+    /// Verifies that logging through a <see langword="null"/> logger throws <see cref="ArgumentNullException"/>.
+    /// </summary>
     [Fact]
     public void LogWarningThrottled_NullLogger_ThrowsArgumentNullException()
     {
@@ -534,6 +577,9 @@ public class ThrottledLoggerExtensionsTests
         Assert.Equal("logger", exception.ParamName);
     }
 
+    /// <summary>
+    /// Verifies that resetting a key on a <see langword="null"/> logger throws <see cref="ArgumentNullException"/>.
+    /// </summary>
     [Fact]
     public void ResetThrottle_NullLogger_ThrowsArgumentNullException()
     {
@@ -544,6 +590,9 @@ public class ThrottledLoggerExtensionsTests
         Assert.Equal("logger", exception.ParamName);
     }
 
+    /// <summary>
+    /// Verifies that querying a <see langword="null"/> logger throws <see cref="ArgumentNullException"/>.
+    /// </summary>
     [Fact]
     public void TryGetThrottledSuppressedCount_NullLogger_ThrowsArgumentNullException()
     {
