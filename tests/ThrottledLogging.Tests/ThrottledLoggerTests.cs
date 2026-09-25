@@ -2,6 +2,9 @@ using Xunit;
 
 namespace ThrottledLogging.Tests;
 
+/// <summary>
+/// Tests for <see cref="ThrottledLogger"/>.
+/// </summary>
 [Collection("Sequential")]
 public class ThrottledLoggerTests
 {
@@ -134,21 +137,29 @@ public class ThrottledLoggerTests
         Assert.Equal(int.MaxValue, result);
     }
 
+    /// <summary>
+    /// Verifies that a call after the interval has elapsed is allowed and reports the calls suppressed before it.
+    /// </summary>
     [Fact]
     public void ShouldLog_AfterIntervalExpires_ReturnsTrue()
     {
+        // The interval is long enough that a stalled thread cannot let it elapse between the first two calls.
+        var interval = TimeSpan.FromMilliseconds(500);
         var throttler = new ThrottledLogger();
-        throttler.ShouldLog("key", TimeSpan.FromMilliseconds(20), out _);
-        throttler.ShouldLog("key", TimeSpan.FromMilliseconds(20), out _); // suppressed
+        throttler.ShouldLog("key", interval, out _);
+        throttler.ShouldLog("key", interval, out _); // suppressed
 
-        Thread.Sleep(50);
+        Thread.Sleep(TimeSpan.FromMilliseconds(700));
 
-        var result = throttler.ShouldLog("key", TimeSpan.FromMilliseconds(20), out var suppressed);
+        var result = throttler.ShouldLog("key", interval, out var suppressed);
 
         Assert.True(result);
         Assert.Equal(1, suppressed);
     }
 
+    /// <summary>
+    /// Verifies that suppressing one key does not affect another key on the same throttler.
+    /// </summary>
     [Fact]
     public void ShouldLog_DifferentKeys_TrackedIndependently()
     {
@@ -163,6 +174,9 @@ public class ThrottledLoggerTests
         Assert.Equal(0, suppressed);
     }
 
+    /// <summary>
+    /// Verifies that the first call for a key is allowed and reports no suppressed calls.
+    /// </summary>
     [Fact]
     public void ShouldLog_NewKey_ReturnsTrue()
     {
@@ -174,6 +188,9 @@ public class ThrottledLoggerTests
         Assert.Equal(0, suppressed);
     }
 
+    /// <summary>
+    /// Verifies that suppressed calls accumulate and their total is reported by the next allowed call.
+    /// </summary>
     [Fact]
     public void ShouldLog_SuppressedCount_AccumulatesAndReportedOnNextAllowed()
     {
@@ -189,6 +206,9 @@ public class ThrottledLoggerTests
         Assert.Equal(2, suppressed);
     }
 
+    /// <summary>
+    /// Verifies that the suppressed count is reset once it has been reported, so it is not reported twice.
+    /// </summary>
     [Fact]
     public void ShouldLog_SuppressedCountResets_AfterBeingReported()
     {
@@ -204,6 +224,9 @@ public class ThrottledLoggerTests
         Assert.Equal(0, suppressed);
     }
 
+    /// <summary>
+    /// Verifies that a repeated call within the interval is suppressed.
+    /// </summary>
     [Fact]
     public void ShouldLog_WithinInterval_ReturnsFalse()
     {
@@ -216,6 +239,9 @@ public class ThrottledLoggerTests
         Assert.Equal(0, suppressed);
     }
 
+    /// <summary>
+    /// Verifies that concurrent calls on one key allow exactly one call and count every other call as suppressed.
+    /// </summary>
     [Fact]
     public void ShouldLog_ConcurrentCallsOnSameKey_NoLostUpdates()
     {
@@ -245,6 +271,9 @@ public class ThrottledLoggerTests
         Assert.Equal((threadCount * callsPerThread) - 1, suppressed);
     }
 
+    /// <summary>
+    /// Verifies that under concurrency with a short interval, every suppressed call is reported exactly once or still tracked.
+    /// </summary>
     [Fact]
     public void ShouldLog_ConcurrentCallsWithExpiringInterval_SuppressedCountsAreNeverLostOrDuplicated()
     {
@@ -281,6 +310,9 @@ public class ThrottledLoggerTests
         Assert.Equal(falseCount, reportedSuppressedSum + leftover);
     }
 
+    /// <summary>
+    /// Verifies that a zero interval never suppresses.
+    /// </summary>
     [Fact]
     public void ShouldLog_ZeroInterval_AlwaysReturnsTrue()
     {
@@ -329,6 +361,9 @@ public class ThrottledLoggerTests
         Assert.Equal(0, suppressedCalls);
     }
 
+    /// <summary>
+    /// Verifies that resetting a key discards its state, so the next call is allowed with no suppressed count.
+    /// </summary>
     [Fact]
     public void Reset_RemovesTrackedState_SoNextCallIsTreatedAsFirst()
     {
@@ -344,6 +379,9 @@ public class ThrottledLoggerTests
         Assert.Equal(0, suppressed);
     }
 
+    /// <summary>
+    /// Verifies that querying a key that was never used reports it as untracked.
+    /// </summary>
     [Fact]
     public void TryGetSuppressedCount_UntrackedKey_ReturnsFalse()
     {
@@ -355,6 +393,9 @@ public class ThrottledLoggerTests
         Assert.Equal(0, suppressed);
     }
 
+    /// <summary>
+    /// Verifies that querying a tracked key returns the number of calls suppressed so far.
+    /// </summary>
     [Fact]
     public void TryGetSuppressedCount_TrackedKey_ReturnsCurrentSuppressedCount()
     {
