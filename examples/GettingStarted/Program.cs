@@ -1,7 +1,7 @@
 using Microsoft.Extensions.Logging;
 using ThrottledLogging;
 
-// Set up a console logger (synchronous write so output stays in order)
+// Set up a console logger (it writes asynchronously, so each section drains the queue before continuing)
 using var loggerFactory = LoggerFactory.Create(builder =>
     builder.AddSimpleConsole(options =>
     {
