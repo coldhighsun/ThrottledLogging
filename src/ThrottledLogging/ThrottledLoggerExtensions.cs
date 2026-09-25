@@ -6,9 +6,9 @@ namespace ThrottledLogging;
 /// Provides throttled logging extension methods for <see cref="ILogger"/>.
 /// </summary>
 /// <remarks>
-/// Message templates must come from a bounded set of compile-time constants (as with standard
-/// <see cref="ILogger"/> usage). Passing dynamically built strings as the template will grow the
-/// internal suppressed-template cache without bound.
+/// Message templates should come from a bounded set of compile-time constants (as with standard
+/// <see cref="ILogger"/> usage). The internal suppressed-template cache is bounded, so dynamically built
+/// templates do not leak memory, but templates beyond that bound are not cached and cost an extra allocation.
 /// </remarks>
 public static class ThrottledLoggerExtensions
 {
