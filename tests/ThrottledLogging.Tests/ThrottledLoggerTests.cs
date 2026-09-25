@@ -493,4 +493,30 @@ public class ThrottledLoggerTests
             ThrottledLogger.Configure(expiry: TimeSpan.FromHours(1), cleanupPeriod: TimeSpan.FromHours(1));
         }
     }
+
+    /// <summary>
+    /// Verifies that creating the cleanup timer while execution context flow is already suppressed does not throw,
+    /// and leaves flow suppressed for the caller.
+    /// </summary>
+    [Fact]
+    public void CreateCleanupTimer_FlowAlreadySuppressed_DoesNotThrowAndLeavesFlowSuppressed()
+    {
+        using (ExecutionContext.SuppressFlow())
+        {
+            using var timer = ThrottledLogger.CreateCleanupTimer(static _ => { }, Timeout.InfiniteTimeSpan);
+
+            Assert.True(ExecutionContext.IsFlowSuppressed());
+        }
+    }
+
+    /// <summary>
+    /// Verifies that creating the cleanup timer while execution context flow is not suppressed restores flow afterwards.
+    /// </summary>
+    [Fact]
+    public void CreateCleanupTimer_FlowNotSuppressed_RestoresFlow()
+    {
+        using var timer = ThrottledLogger.CreateCleanupTimer(static _ => { }, Timeout.InfiniteTimeSpan);
+
+        Assert.False(ExecutionContext.IsFlowSuppressed());
+    }
 }
