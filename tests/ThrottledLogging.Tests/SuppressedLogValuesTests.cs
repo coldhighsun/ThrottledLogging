@@ -126,4 +126,28 @@ public class SuppressedLogValuesTests
             Messages.Culture = null;
         }
     }
+
+    /// <summary>
+    /// Verifies that dynamically built templates cannot grow the template cache beyond its limit, and that templates
+    /// no longer cached still get the correct <c>{OriginalFormat}</c>.
+    /// </summary>
+    [Fact]
+    public void Create_MoreTemplatesThanCacheLimit_CacheStaysBoundedAndOriginalFormatIsCorrect()
+    {
+        const string suffix = " ({SuppressedCount} dropped)";
+        var prefix = Guid.NewGuid().ToString("N");
+        SuppressedLogValues? last = null;
+
+        for (var i = 0; i < SuppressedLogValues.MaxCachedOriginalFormats + 10; i++)
+        {
+            last = SuppressedLogValues.Create($"{prefix} {i}", [], 1, suffix);
+        }
+
+        Assert.True(SuppressedLogValues.CachedOriginalFormatCount <= SuppressedLogValues.MaxCachedOriginalFormats);
+        Assert.Equal(
+            KeyValuePair.Create<string, object?>(
+                "{OriginalFormat}",
+                $"{prefix} {SuppressedLogValues.MaxCachedOriginalFormats + 9}{suffix}"),
+            last![^1]);
+    }
 }

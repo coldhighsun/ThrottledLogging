@@ -33,10 +33,22 @@ internal sealed class SuppressedLogValues : IReadOnlyList<KeyValuePair<string, o
     private const string OriginalFormatName = "{OriginalFormat}";
 
     /// <summary>
+    /// The maximum number of entries kept in <see cref="OriginalFormatCache"/>, matching the limit the logging library
+    /// applies to its own template cache. Once reached, templates not yet cached are concatenated on every use instead.
+    /// </summary>
+    internal const int MaxCachedOriginalFormats = 1024;
+
+    /// <summary>
     /// Caches the original message template concatenated with the suffix, to avoid repeated string allocations for
-    /// the same template. Keyed by both the template and the suffix, since the suffix is localized.
+    /// the same template. Keyed by both the template and the suffix, since the suffix is localized. Bounded by
+    /// <see cref="MaxCachedOriginalFormats"/>, so dynamically built templates cannot grow it without limit.
     /// </summary>
     private static readonly ConcurrentDictionary<(string OriginalFormat, string Suffix), string> OriginalFormatCache = new();
+
+    /// <summary>
+    /// The number of entries added to <see cref="OriginalFormatCache"/>, which never removes any.
+    /// </summary>
+    private static int _cachedOriginalFormatCount;
 
     /// <summary>
     /// The structured state of the original message. Read lazily, like the original state itself would be, because
@@ -110,9 +122,7 @@ internal sealed class SuppressedLogValues : IReadOnlyList<KeyValuePair<string, o
 
         _originalState = originalState;
         _originalValueCount = originalCount - 1;
-        _originalFormat = OriginalFormatCache.GetOrAdd(
-            (originalFormat, suffix),
-            static key => string.Concat(key.OriginalFormat, key.Suffix));
+        _originalFormat = GetOriginalFormat(originalFormat, suffix);
         _renderOriginal = renderOriginal;
         _renderSuffix = renderSuffix;
         _suppressedCountName = suppressedCountName;
@@ -195,6 +205,11 @@ internal sealed class SuppressedLogValues : IReadOnlyList<KeyValuePair<string, o
     }
 
     /// <summary>
+    /// Gets the number of entries currently held in the template cache.
+    /// </summary>
+    internal static int CachedOriginalFormatCount => OriginalFormatCache.Count;
+
+    /// <summary>
     /// Returns an enumerator that iterates through the structured values.
     /// </summary>
     /// <returns>An enumerator for the structured values.</returns>
@@ -217,6 +232,34 @@ internal sealed class SuppressedLogValues : IReadOnlyList<KeyValuePair<string, o
     /// </summary>
     /// <returns>The rendered message.</returns>
     public override string ToString() => _cachedToString ??= string.Concat(_renderOriginal(), _renderSuffix());
+
+    /// <summary>
+    /// Gets the original message template followed by the suffix, from the cache if possible.
+    /// </summary>
+    /// <param name="originalFormat">The original message template.</param>
+    /// <param name="suffix">The suffix template.</param>
+    /// <returns>The concatenated template.</returns>
+    private static string GetOriginalFormat(string originalFormat, string suffix)
+    {
+        var key = (originalFormat, suffix);
+
+        if (OriginalFormatCache.TryGetValue(key, out var cached))
+        {
+            return cached;
+        }
+
+        var format = string.Concat(originalFormat, suffix);
+
+        // Tracked with a separate counter because ConcurrentDictionary.Count takes every lock. The check races with
+        // concurrent adds, so the cache may overshoot the limit by the number of concurrent callers; it stays bounded.
+        if (Volatile.Read(ref _cachedOriginalFormatCount) < MaxCachedOriginalFormats
+            && OriginalFormatCache.TryAdd(key, format))
+        {
+            Interlocked.Increment(ref _cachedOriginalFormatCount);
+        }
+
+        return format;
+    }
 
     /// <summary>
     /// Gets a name for the suppressed count value that no value of the original message uses, so that sinks binding
