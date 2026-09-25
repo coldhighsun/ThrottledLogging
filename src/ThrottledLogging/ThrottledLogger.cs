@@ -123,9 +123,10 @@ public class ThrottledLogger
     private static readonly ConditionalWeakTable<ILogger, ThrottledLogger> Instances = new();
 
     /// <summary>
-    /// The age threshold, as a <see cref="TimeSpan"/>, after which a log entry is considered expired and eligible for cleanup.
+    /// The age threshold, in <see cref="TimeSpan"/> ticks, after which a log entry is considered expired and eligible for cleanup.
+    /// Stored as a <see cref="long"/> and accessed through <see cref="Volatile"/>, so the cleanup thread never reads a torn value.
     /// </summary>
-    private static TimeSpan _expiry;
+    private static long _expiryTicks;
 
     /// <summary>
     /// A thread-safe dictionary that tracks log keys and their associated log entry data (last log timestamp and suppressed count) for this throttler instance.
@@ -139,7 +140,7 @@ public class ThrottledLogger
     {
         var defaultCleanupPeriod = TimeSpan.FromHours(1);
 
-        _expiry = defaultCleanupPeriod;
+        _expiryTicks = defaultCleanupPeriod.Ticks;
 
         // Suppresses flow so the timer does not capture, and keep alive forever, the execution context
         // (AsyncLocal values such as Activity.Current) of whichever caller happens to trigger type initialization.
@@ -180,7 +181,7 @@ public class ThrottledLogger
         // before the timer is changed; the timer's internal locking publishes it to the callback thread.
         lock (ConfigureLock)
         {
-            _expiry = expiry;
+            Volatile.Write(ref _expiryTicks, expiry.Ticks);
             CleanupTimer.Change(cleanupPeriod, cleanupPeriod);
         }
     }
@@ -299,7 +300,7 @@ public class ThrottledLogger
     private void Cleanup()
     {
         var tick = Stopwatch.GetTimestamp();
-        var expiry = _expiry;
+        var expiry = TimeSpan.FromTicks(Volatile.Read(ref _expiryTicks));
 
         foreach (var kv in _tracker)
         {
