@@ -158,6 +158,8 @@ public class ThrottledLogger
     /// Entries whose throttle interval has not yet elapsed are never removed, regardless of this value,
     /// so an entry is retained for at least its throttle interval. Avoid combining very long intervals
     /// (such as <see cref="TimeSpan.MaxValue"/>) with an unbounded set of keys, as memory then grows with the key count.
+    /// An entry removed by cleanup discards any suppressed count not yet reported, so the next message for that key
+    /// is logged without the suppressed-count suffix.
     /// </param>
     /// <param name="cleanupPeriod">
     /// How often the background cleanup timer runs, from 1 millisecond up to 4294967294 milliseconds (about 49.7 days).
