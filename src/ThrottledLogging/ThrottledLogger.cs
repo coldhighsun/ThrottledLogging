@@ -138,9 +138,10 @@ public class ThrottledLogger
     /// </summary>
     static ThrottledLogger()
     {
+        var defaultExpiry = TimeSpan.FromHours(1);
         var defaultCleanupPeriod = TimeSpan.FromHours(1);
 
-        _expiryTicks = defaultCleanupPeriod.Ticks;
+        _expiryTicks = defaultExpiry.Ticks;
 
         // Suppresses flow so the timer does not capture, and keep alive forever, the execution context
         // (AsyncLocal values such as Activity.Current) of whichever caller happens to trigger type initialization.
