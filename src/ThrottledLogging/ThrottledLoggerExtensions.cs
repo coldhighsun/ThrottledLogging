@@ -20,6 +20,7 @@ public static class ThrottledLoggerExtensions
     /// <param name="interval">The minimum time interval between emitted log messages for the same key.</param>
     /// <param name="messageTemplate">The message template.</param>
     /// <param name="args">The message template arguments.</param>
+    /// <exception cref="ArgumentNullException"><paramref name="logger"/> or <paramref name="key"/> is <see langword="null"/>.</exception>
     public static void LogCriticalThrottled(
         this ILogger logger,
         string key,
@@ -37,6 +38,7 @@ public static class ThrottledLoggerExtensions
     /// <param name="exception">The exception to log.</param>
     /// <param name="messageTemplate">The message template.</param>
     /// <param name="args">The message template arguments.</param>
+    /// <exception cref="ArgumentNullException"><paramref name="logger"/> or <paramref name="key"/> is <see langword="null"/>.</exception>
     public static void LogCriticalThrottled(
         this ILogger logger,
         string key,
@@ -54,6 +56,7 @@ public static class ThrottledLoggerExtensions
     /// <param name="interval">The minimum time interval between emitted log messages for the same key.</param>
     /// <param name="messageTemplate">The message template.</param>
     /// <param name="args">The message template arguments.</param>
+    /// <exception cref="ArgumentNullException"><paramref name="logger"/> or <paramref name="key"/> is <see langword="null"/>.</exception>
     public static void LogDebugThrottled(
         this ILogger logger,
         string key,
@@ -71,6 +74,7 @@ public static class ThrottledLoggerExtensions
     /// <param name="exception">The exception to log.</param>
     /// <param name="messageTemplate">The message template.</param>
     /// <param name="args">The message template arguments.</param>
+    /// <exception cref="ArgumentNullException"><paramref name="logger"/> or <paramref name="key"/> is <see langword="null"/>.</exception>
     public static void LogDebugThrottled(
         this ILogger logger,
         string key,
@@ -88,6 +92,7 @@ public static class ThrottledLoggerExtensions
     /// <param name="interval">The minimum time interval between emitted log messages for the same key.</param>
     /// <param name="messageTemplate">The message template.</param>
     /// <param name="args">The message template arguments.</param>
+    /// <exception cref="ArgumentNullException"><paramref name="logger"/> or <paramref name="key"/> is <see langword="null"/>.</exception>
     public static void LogErrorThrottled(
         this ILogger logger,
         string key,
@@ -105,6 +110,7 @@ public static class ThrottledLoggerExtensions
     /// <param name="exception">The exception to log.</param>
     /// <param name="messageTemplate">The message template.</param>
     /// <param name="args">The message template arguments.</param>
+    /// <exception cref="ArgumentNullException"><paramref name="logger"/> or <paramref name="key"/> is <see langword="null"/>.</exception>
     public static void LogErrorThrottled(
         this ILogger logger,
         string key,
@@ -122,6 +128,7 @@ public static class ThrottledLoggerExtensions
     /// <param name="interval">The minimum time interval between emitted log messages for the same key.</param>
     /// <param name="messageTemplate">The message template.</param>
     /// <param name="args">The message template arguments.</param>
+    /// <exception cref="ArgumentNullException"><paramref name="logger"/> or <paramref name="key"/> is <see langword="null"/>.</exception>
     public static void LogInformationThrottled(
         this ILogger logger,
         string key,
@@ -139,6 +146,7 @@ public static class ThrottledLoggerExtensions
     /// <param name="exception">The exception to log.</param>
     /// <param name="messageTemplate">The message template.</param>
     /// <param name="args">The message template arguments.</param>
+    /// <exception cref="ArgumentNullException"><paramref name="logger"/> or <paramref name="key"/> is <see langword="null"/>.</exception>
     public static void LogInformationThrottled(
         this ILogger logger,
         string key,
@@ -156,6 +164,7 @@ public static class ThrottledLoggerExtensions
     /// <param name="interval">The minimum time interval between emitted log messages for the same key.</param>
     /// <param name="messageTemplate">The message template.</param>
     /// <param name="args">The message template arguments.</param>
+    /// <exception cref="ArgumentNullException"><paramref name="logger"/> or <paramref name="key"/> is <see langword="null"/>.</exception>
     public static void LogTraceThrottled(
         this ILogger logger,
         string key,
@@ -173,6 +182,7 @@ public static class ThrottledLoggerExtensions
     /// <param name="exception">The exception to log.</param>
     /// <param name="messageTemplate">The message template.</param>
     /// <param name="args">The message template arguments.</param>
+    /// <exception cref="ArgumentNullException"><paramref name="logger"/> or <paramref name="key"/> is <see langword="null"/>.</exception>
     public static void LogTraceThrottled(
         this ILogger logger,
         string key,
@@ -190,6 +200,7 @@ public static class ThrottledLoggerExtensions
     /// <param name="interval">The minimum time interval between emitted log messages for the same key.</param>
     /// <param name="messageTemplate">The message template.</param>
     /// <param name="args">The message template arguments.</param>
+    /// <exception cref="ArgumentNullException"><paramref name="logger"/> or <paramref name="key"/> is <see langword="null"/>.</exception>
     public static void LogWarningThrottled(
         this ILogger logger,
         string key,
@@ -207,6 +218,7 @@ public static class ThrottledLoggerExtensions
     /// <param name="exception">The exception to log.</param>
     /// <param name="messageTemplate">The message template.</param>
     /// <param name="args">The message template arguments.</param>
+    /// <exception cref="ArgumentNullException"><paramref name="logger"/> or <paramref name="key"/> is <see langword="null"/>.</exception>
     public static void LogWarningThrottled(
         this ILogger logger,
         string key,
