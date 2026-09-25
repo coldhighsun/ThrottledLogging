@@ -230,12 +230,17 @@ public static class ThrottledLoggerExtensions
     /// </summary>
     /// <param name="logger">The logger instance.</param>
     /// <param name="key">The throttling key to reset.</param>
-    /// <exception cref="ArgumentNullException"><paramref name="logger"/> is <see langword="null"/>.</exception>
+    /// <exception cref="ArgumentNullException"><paramref name="logger"/> or <paramref name="key"/> is <see langword="null"/>.</exception>
     public static void ResetThrottle(this ILogger logger, string key)
     {
         ArgumentNullException.ThrowIfNull(logger);
+        ArgumentNullException.ThrowIfNull(key);
 
-        GetManager(logger).Reset(key);
+        // A logger that has never logged throttled has no state to reset, so no throttler is created for it.
+        if (ThrottledLogger.TryGet(logger, out var manager))
+        {
+            manager.Reset(key);
+        }
     }
 
     /// <summary>
@@ -245,12 +250,19 @@ public static class ThrottledLoggerExtensions
     /// <param name="key">The throttling key to query.</param>
     /// <param name="suppressedCount">The number of suppressed calls recorded for the key, if tracked.</param>
     /// <returns><see langword="true"/> if the key is currently tracked; otherwise <see langword="false"/>.</returns>
-    /// <exception cref="ArgumentNullException"><paramref name="logger"/> is <see langword="null"/>.</exception>
+    /// <exception cref="ArgumentNullException"><paramref name="logger"/> or <paramref name="key"/> is <see langword="null"/>.</exception>
     public static bool TryGetThrottledSuppressedCount(this ILogger logger, string key, out int suppressedCount)
     {
         ArgumentNullException.ThrowIfNull(logger);
+        ArgumentNullException.ThrowIfNull(key);
 
-        return GetManager(logger).TryGetSuppressedCount(key, out suppressedCount);
+        if (ThrottledLogger.TryGet(logger, out var manager))
+        {
+            return manager.TryGetSuppressedCount(key, out suppressedCount);
+        }
+
+        suppressedCount = 0;
+        return false;
     }
 
     /// <summary>
@@ -263,7 +275,7 @@ public static class ThrottledLoggerExtensions
     /// <param name="exception">The exception to log, if any.</param>
     /// <param name="messageTemplate">The message template.</param>
     /// <param name="args">The message template arguments.</param>
-    /// <exception cref="ArgumentNullException"><paramref name="logger"/> is <see langword="null"/>.</exception>
+    /// <exception cref="ArgumentNullException"><paramref name="logger"/> or <paramref name="key"/> is <see langword="null"/>.</exception>
     private static void LogThrottled(
         ILogger logger,
         LogLevel level,
@@ -274,6 +286,7 @@ public static class ThrottledLoggerExtensions
         ReadOnlySpan<object?> args)
     {
         ArgumentNullException.ThrowIfNull(logger);
+        ArgumentNullException.ThrowIfNull(key);
 
         if (!logger.IsEnabled(level))
         {

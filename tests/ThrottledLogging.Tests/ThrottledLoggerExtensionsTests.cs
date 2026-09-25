@@ -447,6 +447,82 @@ public class ThrottledLoggerExtensionsTests
         Assert.Equal(2, suppressed);
     }
 
+    /// <summary>
+    /// Verifies that querying a logger that has never logged throttled reports the key as untracked, without creating
+    /// a throttler for the logger.
+    /// </summary>
+    [Fact]
+    public void TryGetThrottledSuppressedCount_LoggerNeverThrottled_ReturnsFalseWithoutCreatingThrottler()
+    {
+        var logger = new FakeLogger();
+
+        var found = logger.TryGetThrottledSuppressedCount("key", out var suppressed);
+
+        Assert.False(found);
+        Assert.Equal(0, suppressed);
+        Assert.False(ThrottledLogger.TryGet(logger, out _));
+    }
+
+    /// <summary>
+    /// Verifies that resetting a key on a logger that has never logged throttled does not create a throttler for it.
+    /// </summary>
+    [Fact]
+    public void ResetThrottle_LoggerNeverThrottled_DoesNotCreateThrottler()
+    {
+        var logger = new FakeLogger();
+
+        logger.ResetThrottle("key");
+
+        Assert.False(ThrottledLogger.TryGet(logger, out _));
+    }
+
+    /// <summary>
+    /// Verifies that logging with a <see langword="null"/> key throws <see cref="ArgumentNullException"/>, whether or
+    /// not the level is enabled.
+    /// </summary>
+    /// <param name="minLevel">The minimum level enabled on the logger.</param>
+    [Theory]
+    [InlineData(LogLevel.Trace)]
+    [InlineData(LogLevel.None)]
+    public void LogWarningThrottled_NullKey_ThrowsArgumentNullException(LogLevel minLevel)
+    {
+        var logger = new FakeLogger { MinLevel = minLevel };
+
+        var exception = Assert.Throws<ArgumentNullException>(
+            () => logger.LogWarningThrottled(null!, TimeSpan.FromMinutes(1), "Msg"));
+
+        Assert.Equal("key", exception.ParamName);
+    }
+
+    /// <summary>
+    /// Verifies that resetting a <see langword="null"/> key throws <see cref="ArgumentNullException"/>, even on a
+    /// logger that has never logged throttled.
+    /// </summary>
+    [Fact]
+    public void ResetThrottle_NullKey_ThrowsArgumentNullException()
+    {
+        var logger = new FakeLogger();
+
+        var exception = Assert.Throws<ArgumentNullException>(() => logger.ResetThrottle(null!));
+
+        Assert.Equal("key", exception.ParamName);
+    }
+
+    /// <summary>
+    /// Verifies that querying a <see langword="null"/> key throws <see cref="ArgumentNullException"/>, even on a
+    /// logger that has never logged throttled.
+    /// </summary>
+    [Fact]
+    public void TryGetThrottledSuppressedCount_NullKey_ThrowsArgumentNullException()
+    {
+        var logger = new FakeLogger();
+
+        var exception = Assert.Throws<ArgumentNullException>(
+            () => logger.TryGetThrottledSuppressedCount(null!, out _));
+
+        Assert.Equal("key", exception.ParamName);
+    }
+
     [Fact]
     public void LogWarningThrottled_NullLogger_ThrowsArgumentNullException()
     {
