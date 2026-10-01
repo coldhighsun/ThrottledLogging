@@ -9,6 +9,83 @@ namespace ThrottledLogging.Tests;
 public class ThrottledLoggerTests
 {
     /// <summary>
+    /// Verifies that concurrent callers never lose or double-report a suppressed call: every suppressed call is
+    /// reported by exactly one call that was allowed.
+    /// </summary>
+    [Fact]
+    public void ShouldLog_ConcurrentCallers_EverySuppressedCallIsReportedOnce()
+    {
+        const int threads = 8;
+        const int callsPerThread = 20_000;
+        var throttler = new ThrottledLogger();
+        var interval = TimeSpan.FromMilliseconds(1);
+        var suppressedCalls = 0L;
+        var reportedSuppressed = 0L;
+
+        Parallel.For(0, threads, new ParallelOptions { MaxDegreeOfParallelism = threads }, _ =>
+        {
+            for (var i = 0; i < callsPerThread; i++)
+            {
+                if (throttler.ShouldLog("key", interval, out var count))
+                {
+                    Interlocked.Add(ref reportedSuppressed, count);
+                }
+                else
+                {
+                    Interlocked.Increment(ref suppressedCalls);
+                }
+            }
+        });
+
+        // A zero interval always logs, which reports whatever is still pending.
+        Assert.True(throttler.ShouldLog("key", TimeSpan.Zero, out var remaining));
+        reportedSuppressed += remaining;
+
+        Assert.Equal(suppressedCalls, reportedSuppressed);
+    }
+
+    /// <summary>
+    /// Verifies that suppressed calls are counted exactly while the window is open.
+    /// </summary>
+    [Fact]
+    public void ShouldLog_ConcurrentSuppressedCalls_CountsEachOne()
+    {
+        const int threads = 8;
+        const int callsPerThread = 10_000;
+        var throttler = new ThrottledLogger();
+        Assert.True(throttler.ShouldLog("key", TimeSpan.FromDays(1), out _));
+
+        Parallel.For(0, threads, new ParallelOptions { MaxDegreeOfParallelism = threads }, _ =>
+        {
+            for (var i = 0; i < callsPerThread; i++)
+            {
+                Assert.False(throttler.ShouldLog("key", TimeSpan.FromDays(1), out _));
+            }
+        });
+
+        Assert.True(throttler.TryGetSuppressedCount("key", out var count));
+        Assert.Equal(threads * callsPerThread, count);
+    }
+
+    /// <summary>
+    /// Verifies that the suppressed count of a window is reported once and then starts again from zero.
+    /// </summary>
+    [Fact]
+    public void ShouldLog_AllowedAfterSuppression_ReportsCountOnceAndResets()
+    {
+        var throttler = new ThrottledLogger();
+        throttler.ShouldLog("key", TimeSpan.FromDays(1), out _);
+        throttler.ShouldLog("key", TimeSpan.FromDays(1), out _);
+        throttler.ShouldLog("key", TimeSpan.FromDays(1), out _);
+
+        Assert.True(throttler.ShouldLog("key", TimeSpan.Zero, out var first));
+        Assert.True(throttler.ShouldLog("key", TimeSpan.Zero, out var second));
+
+        Assert.Equal(2, first);
+        Assert.Equal(0, second);
+    }
+
+    /// <summary>
     /// Verifies that <see cref="ThrottledLogger.ShouldLog"/> rejects a null key with a clear parameter name.
     /// </summary>
     [Fact]
