@@ -201,8 +201,11 @@ public class ThrottledLogger
     /// <see langword="true"/> if the log entry should be emitted; <see langword="false"/> if it is
     /// suppressed because the throttle interval has not yet elapsed.
     /// </returns>
+    /// <exception cref="ArgumentNullException"><paramref name="key"/> is <see langword="null"/>.</exception>
     public bool ShouldLog(string key, TimeSpan interval, out int suppressedCount)
     {
+        ArgumentNullException.ThrowIfNull(key);
+
         var tick = Stopwatch.GetTimestamp();
 
         while (true)
@@ -249,7 +252,13 @@ public class ThrottledLogger
     /// Removes any tracked throttle state for <paramref name="key"/>, so the next call for that key is treated as the first.
     /// </summary>
     /// <param name="key">The throttling key to reset.</param>
-    public void Reset(string key) => _tracker.TryRemove(key, out _);
+    /// <exception cref="ArgumentNullException"><paramref name="key"/> is <see langword="null"/>.</exception>
+    public void Reset(string key)
+    {
+        ArgumentNullException.ThrowIfNull(key);
+
+        _tracker.TryRemove(key, out _);
+    }
 
     /// <summary>
     /// Attempts to get the number of log calls currently suppressed for <paramref name="key"/>.
@@ -257,8 +266,11 @@ public class ThrottledLogger
     /// <param name="key">The throttling key to query.</param>
     /// <param name="suppressedCount">The number of suppressed calls recorded for the key, if tracked.</param>
     /// <returns><see langword="true"/> if the key is currently tracked; otherwise <see langword="false"/>.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="key"/> is <see langword="null"/>.</exception>
     public bool TryGetSuppressedCount(string key, out int suppressedCount)
     {
+        ArgumentNullException.ThrowIfNull(key);
+
         if (_tracker.TryGetValue(key, out var entry))
         {
             suppressedCount = entry.SuppressedCount;

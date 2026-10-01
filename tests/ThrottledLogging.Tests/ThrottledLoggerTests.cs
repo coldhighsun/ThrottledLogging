@@ -9,6 +9,45 @@ namespace ThrottledLogging.Tests;
 public class ThrottledLoggerTests
 {
     /// <summary>
+    /// Verifies that <see cref="ThrottledLogger.ShouldLog"/> rejects a null key with a clear parameter name.
+    /// </summary>
+    [Fact]
+    public void ShouldLog_NullKey_ThrowsArgumentNullException()
+    {
+        var throttler = new ThrottledLogger();
+
+        var ex = Assert.Throws<ArgumentNullException>(() => throttler.ShouldLog(null!, TimeSpan.FromSeconds(1), out _));
+
+        Assert.Equal("key", ex.ParamName);
+    }
+
+    /// <summary>
+    /// Verifies that <see cref="ThrottledLogger.Reset"/> rejects a null key with a clear parameter name.
+    /// </summary>
+    [Fact]
+    public void Reset_NullKey_ThrowsArgumentNullException()
+    {
+        var throttler = new ThrottledLogger();
+
+        var ex = Assert.Throws<ArgumentNullException>(() => throttler.Reset(null!));
+
+        Assert.Equal("key", ex.ParamName);
+    }
+
+    /// <summary>
+    /// Verifies that <see cref="ThrottledLogger.TryGetSuppressedCount"/> rejects a null key with a clear parameter name.
+    /// </summary>
+    [Fact]
+    public void TryGetSuppressedCount_NullKey_ThrowsArgumentNullException()
+    {
+        var throttler = new ThrottledLogger();
+
+        var ex = Assert.Throws<ArgumentNullException>(() => throttler.TryGetSuppressedCount(null!, out _));
+
+        Assert.Equal("key", ex.ParamName);
+    }
+
+    /// <summary>
     /// Verifies that cleanup removes an entry once it is idle beyond the expiry and its throttle window has closed.
     /// </summary>
     [Fact]
