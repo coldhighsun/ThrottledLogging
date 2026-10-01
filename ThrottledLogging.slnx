@@ -12,6 +12,9 @@
     <File Path="LICENSE" />
     <File Path="README.md" />
   </Folder>
+  <Folder Name="/benchmarks/">
+    <Project Path="benchmarks/ThrottledLogging.Benchmarks/ThrottledLogging.Benchmarks.csproj" />
+  </Folder>
   <Folder Name="/examples/">
     <Project Path="examples/GettingStarted/GettingStarted.csproj" />
   </Folder>
