@@ -13,28 +13,51 @@ namespace ThrottledLogging;
 public class ThrottledLogger
 {
     /// <summary>
-    /// Represents a tracked log entry with its last log timestamp, the number of suppressed occurrences,
-    /// the timestamp of the most recent call, and the longest throttle interval used since the last log.
+    /// Represents a tracked log entry: the start of its throttle window, the number of suppressed occurrences in that window,
+    /// the timestamp of the most recent call, and the longest throttle interval used in that window.
     /// </summary>
-    private struct Entry : IEquatable<Entry>
+    /// <remarks>
+    /// An entry is a mutable reference type so that suppressed calls, the common case, update it in place without allocating.
+    /// Its suppressed count doubles as the linearization point: a thread that starts a new window, or cleanup that removes
+    /// the entry, first seals it (see <see cref="TrySeal"/>), after which no suppressed call can be recorded on it and
+    /// callers that find it sealed retry against the entry that replaced it.
+    /// </remarks>
+    private sealed class Entry
     {
         /// <summary>
-        /// Initializes a new instance of the <see cref="Entry"/> struct with the specified field values.
+        /// The value of <see cref="_suppressedCount"/> once the entry is sealed. Real counts are never negative.
         /// </summary>
-        /// <param name="lastLogTick">The <see cref="Stopwatch"/> timestamp when the key was last logged.</param>
-        /// <param name="suppressedCount">The number of log calls suppressed since the last successful log.</param>
-        /// <param name="lastSeenTick">The <see cref="Stopwatch"/> timestamp of the most recent call for the key, whether logged or suppressed.</param>
-        /// <param name="interval">The longest throttle interval passed for the key since it was last logged.</param>
-        public Entry(long lastLogTick, int suppressedCount, long lastSeenTick, TimeSpan interval)
+        private const int Sealed = -1;
+
+        /// <summary>
+        /// The number of log calls suppressed since the window started, or <see cref="Sealed"/>.
+        /// </summary>
+        private int _suppressedCount;
+
+        /// <summary>
+        /// The <see cref="Stopwatch"/> timestamp of the most recent call for the key, whether logged or suppressed.
+        /// </summary>
+        private long _lastSeenTick;
+
+        /// <summary>
+        /// The longest throttle interval passed for the key in this window, in <see cref="TimeSpan"/> ticks.
+        /// </summary>
+        private long _intervalTicks;
+
+        /// <summary>
+        /// Initializes a new instance of the <see cref="Entry"/> class for a window that starts at <paramref name="lastLogTick"/>.
+        /// </summary>
+        /// <param name="lastLogTick">The <see cref="Stopwatch"/> timestamp when the key was logged, which starts the window.</param>
+        /// <param name="interval">The throttle interval passed by the call that logged the key.</param>
+        public Entry(long lastLogTick, TimeSpan interval)
         {
             LastLogTick = lastLogTick;
-            SuppressedCount = suppressedCount;
-            LastSeenTick = lastSeenTick;
-            Interval = interval;
+            _lastSeenTick = lastLogTick;
+            _intervalTicks = interval.Ticks;
         }
 
         /// <summary>
-        /// The <see cref="Stopwatch"/> timestamp when the key was last logged.
+        /// The <see cref="Stopwatch"/> timestamp when the key was logged, which started the current window.
         /// </summary>
         public long LastLogTick
         {
@@ -42,58 +65,114 @@ public class ThrottledLogger
         }
 
         /// <summary>
-        /// The number of log calls suppressed since the last successful log.
+        /// The longest throttle interval passed for the key in this window.
         /// </summary>
-        public int SuppressedCount
+        public TimeSpan Interval => TimeSpan.FromTicks(Volatile.Read(ref _intervalTicks));
+
+        /// <summary>
+        /// The number of log calls suppressed in this window, or 0 if the entry is sealed.
+        /// </summary>
+        public int SuppressedCount => Math.Max(Volatile.Read(ref _suppressedCount), 0);
+
+        /// <summary>
+        /// Records a suppressed call, unless the entry has been sealed.
+        /// </summary>
+        /// <param name="tick">The <see cref="Stopwatch"/> timestamp of the call.</param>
+        /// <param name="interval">The throttle interval passed by the call.</param>
+        /// <returns>
+        /// <see langword="true"/> if the call was recorded on this entry; <see langword="false"/> if the entry is sealed
+        /// and the caller must look the key up again.
+        /// </returns>
+        public bool TrySuppress(long tick, TimeSpan interval)
         {
-            get;
+            // The timestamps are updated before the count, so cleanup, which seals by compare-exchanging the count it
+            // read before them, never seals an entry on stale timestamps once this call has counted.
+            RaiseTo(ref _lastSeenTick, tick);
+            RaiseTo(ref _intervalTicks, interval.Ticks);
+
+            var count = Volatile.Read(ref _suppressedCount);
+
+            while (true)
+            {
+                if (count == Sealed)
+                {
+                    return false;
+                }
+
+                var next = IncrementSaturating(count);
+                if (next == count)
+                {
+                    return true;
+                }
+
+                var previous = Interlocked.CompareExchange(ref _suppressedCount, next, count);
+                if (previous == count)
+                {
+                    return true;
+                }
+
+                count = previous;
+            }
         }
 
         /// <summary>
-        /// The <see cref="Stopwatch"/> timestamp of the most recent call for the key, whether logged or suppressed.
-        /// Used by cleanup to measure how long the key has been idle.
+        /// Seals the entry so that no further suppressed call can be recorded on it.
         /// </summary>
-        public long LastSeenTick
+        /// <param name="suppressedCount">The number of calls suppressed in this window, if the call sealed the entry.</param>
+        /// <returns><see langword="true"/> if this call sealed the entry; <see langword="false"/> if it was already sealed.</returns>
+        public bool TrySeal(out int suppressedCount)
         {
-            get;
+            var count = Interlocked.Exchange(ref _suppressedCount, Sealed);
+
+            suppressedCount = Math.Max(count, 0);
+            return count != Sealed;
         }
 
         /// <summary>
-        /// The longest throttle interval passed for the key since it was last logged.
-        /// Used by cleanup to avoid removing an entry whose throttle window is still open.
+        /// Seals the entry if it has been idle longer than <paramref name="expiry"/> and its throttle window has closed.
         /// </summary>
-        public TimeSpan Interval
+        /// <param name="tick">The current <see cref="Stopwatch"/> timestamp.</param>
+        /// <param name="expiry">How long the entry must have been idle.</param>
+        /// <returns>
+        /// <see langword="true"/> if the entry was expired and this call sealed it; <see langword="false"/> if it is still
+        /// in use, was updated concurrently, or was already sealed.
+        /// </returns>
+        public bool TrySealIfExpired(long tick, TimeSpan expiry)
         {
-            get;
+            // The count is read first: if a suppressed call counts after this point, the compare-exchange below fails.
+            var count = Volatile.Read(ref _suppressedCount);
+            if (count == Sealed)
+            {
+                return false;
+            }
+
+            var lastSeenTick = Volatile.Read(ref _lastSeenTick);
+
+            return Stopwatch.GetElapsedTime(lastSeenTick, tick) > expiry
+                   && Stopwatch.GetElapsedTime(LastLogTick, tick) >= Interval
+                   && Interlocked.CompareExchange(ref _suppressedCount, Sealed, count) == count;
         }
 
         /// <summary>
-        /// Determines whether this instance and another <see cref="Entry"/> have the same field values.
+        /// Atomically raises <paramref name="location"/> to <paramref name="value"/> if it is currently lower.
         /// </summary>
-        /// <param name="other">The other <see cref="Entry"/> to compare against.</param>
-        /// <returns><see langword="true"/> if all fields of both instances are equal; otherwise <see langword="false"/>.</returns>
-        /// <remarks>
-        /// Implementing <see cref="IEquatable{T}"/> lets <see cref="ConcurrentDictionary{TKey, TValue}.TryUpdate(TKey, TValue, TValue)"/>
-        /// use the non-boxing generic comparer instead of falling back to a boxing <see cref="object.Equals(object?)"/> comparison.
-        /// </remarks>
-        public bool Equals(Entry other)
-            => LastLogTick == other.LastLogTick
-               && SuppressedCount == other.SuppressedCount
-               && LastSeenTick == other.LastSeenTick
-               && Interval == other.Interval;
+        /// <param name="location">The field to raise.</param>
+        /// <param name="value">The value to raise it to.</param>
+        private static void RaiseTo(ref long location, long value)
+        {
+            var current = Volatile.Read(ref location);
 
-        /// <summary>
-        /// Determines whether this instance and a specified object, which must also be an <see cref="Entry"/>, have the same field values.
-        /// </summary>
-        /// <param name="obj">The object to compare with the current instance.</param>
-        /// <returns><see langword="true"/> if <paramref name="obj"/> is an <see cref="Entry"/> equal to this instance; otherwise <see langword="false"/>.</returns>
-        public override bool Equals(object? obj) => obj is Entry other && Equals(other);
+            while (value > current)
+            {
+                var previous = Interlocked.CompareExchange(ref location, value, current);
+                if (previous == current)
+                {
+                    return;
+                }
 
-        /// <summary>
-        /// Returns a hash code based on all fields of the entry.
-        /// </summary>
-        /// <returns>A hash code for the current instance.</returns>
-        public override int GetHashCode() => HashCode.Combine(LastLogTick, SuppressedCount, LastSeenTick, Interval);
+                current = previous;
+            }
+        }
     }
 
     /// <summary>
@@ -210,37 +289,48 @@ public class ThrottledLogger
 
         while (true)
         {
-            if (_tracker.TryGetValue(key, out var existing))
+            if (!_tracker.TryGetValue(key, out var existing))
             {
-                // A non-positive interval always logs. Checked explicitly because the elapsed time is negative when a
-                // concurrent call with a later timestamp has already updated the entry.
-                if (interval > TimeSpan.Zero && Stopwatch.GetElapsedTime(existing.LastLogTick, tick) < interval)
+                if (_tracker.TryAdd(key, new Entry(tick, interval)))
                 {
-                    var suppressedEntry = new Entry(
-                        existing.LastLogTick,
-                        IncrementSaturating(existing.SuppressedCount),
-                        Math.Max(existing.LastSeenTick, tick),
-                        existing.Interval > interval ? existing.Interval : interval);
-
-                    if (_tracker.TryUpdate(key, suppressedEntry, existing))
-                    {
-                        suppressedCount = 0;
-                        return false;
-                    }
-
-                    continue;
-                }
-
-                if (_tracker.TryUpdate(key, new Entry(Math.Max(existing.LastLogTick, tick), 0, Math.Max(existing.LastSeenTick, tick), interval), existing))
-                {
-                    suppressedCount = existing.SuppressedCount;
+                    suppressedCount = 0;
                     return true;
                 }
 
                 continue;
             }
 
-            if (_tracker.TryAdd(key, new Entry(tick, 0, tick, interval)))
+            // A non-positive interval always logs. Checked explicitly because the elapsed time is negative when a
+            // concurrent call with a later timestamp has already updated the entry.
+            if (interval > TimeSpan.Zero && Stopwatch.GetElapsedTime(existing.LastLogTick, tick) < interval)
+            {
+                if (existing.TrySuppress(tick, interval))
+                {
+                    suppressedCount = 0;
+                    return false;
+                }
+
+                // The entry was sealed by a call that is replacing it, so look the key up again.
+                continue;
+            }
+
+            // Allocated before sealing, so nothing that can throw runs between sealing the old entry and replacing it.
+            var next = new Entry(Math.Max(existing.LastLogTick, tick), interval);
+
+            // Sealing hands the suppressed count to exactly one caller, which then replaces the entry.
+            if (!existing.TrySeal(out var pending))
+            {
+                continue;
+            }
+
+            if (_tracker.TryUpdate(key, next, existing))
+            {
+                suppressedCount = pending;
+                return true;
+            }
+
+            // The sealed entry was removed by Reset or cleanup, which discards its count; start over from scratch.
+            if (_tracker.TryAdd(key, next))
             {
                 suppressedCount = 0;
                 return true;
@@ -349,12 +439,9 @@ public class ThrottledLogger
 
         foreach (var kv in _tracker)
         {
-            var entry = kv.Value;
-
-            if (Stopwatch.GetElapsedTime(entry.LastSeenTick, tick) > expiry
-                && Stopwatch.GetElapsedTime(entry.LastLogTick, tick) >= entry.Interval)
+            // Sealing fails if the entry was updated since it was read, so a concurrently refreshed entry is never discarded.
+            if (kv.Value.TrySealIfExpired(tick, expiry))
             {
-                // Removes only if the entry is unchanged since it was read, so a concurrent ShouldLog update is never discarded.
                 _tracker.TryRemove(kv);
             }
         }
