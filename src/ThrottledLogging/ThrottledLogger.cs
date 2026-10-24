@@ -2,7 +2,9 @@ using Microsoft.Extensions.Logging;
 using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
+using System.Globalization;
 using System.Runtime.CompilerServices;
+using ThrottledLogging.Resources;
 
 namespace ThrottledLogging;
 
@@ -223,6 +225,18 @@ public class ThrottledLogger
 
         _expiryTicks = defaultExpiry.Ticks;
         CleanupTimer = CreateCleanupTimer(OnCleanupTimer, defaultCleanupPeriod);
+    }
+
+    /// <summary>
+    /// Pins the language used to render the suppressed-count suffix (e.g. "(3 messages suppressed)"), overriding the
+    /// current thread's <see cref="CultureInfo.CurrentUICulture"/>. The default, <see langword="null"/>, follows
+    /// <see cref="CultureInfo.CurrentUICulture"/> automatically. This setting is global and shared by all
+    /// <see cref="ThrottledLogger"/> instances.
+    /// </summary>
+    public static CultureInfo? Language
+    {
+        get => Messages.Culture;
+        set => Messages.Culture = value;
     }
 
     /// <summary>
