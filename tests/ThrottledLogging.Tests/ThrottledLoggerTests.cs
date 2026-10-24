@@ -1,3 +1,4 @@
+using System.Globalization;
 using Xunit;
 
 namespace ThrottledLogging.Tests;
@@ -648,6 +649,69 @@ public class ThrottledLoggerTests
         finally
         {
             ThrottledLogger.Configure(expiry: TimeSpan.FromHours(1), cleanupPeriod: TimeSpan.FromHours(1));
+        }
+    }
+
+    /// <summary>
+    /// Verifies that the <see cref="ThrottledLogger.Language"/> getter returns the value previously set, including
+    /// <see langword="null"/> for the default (automatic) behavior.
+    /// </summary>
+    [Fact]
+    public void Language_SetThenGet_ReturnsSameValue()
+    {
+        try
+        {
+            ThrottledLogger.Language = CultureInfo.InvariantCulture;
+            Assert.Equal(CultureInfo.InvariantCulture, ThrottledLogger.Language);
+
+            ThrottledLogger.Language = null;
+            Assert.Null(ThrottledLogger.Language);
+        }
+        finally
+        {
+            ThrottledLogger.Language = null;
+        }
+    }
+
+    /// <summary>
+    /// Verifies that pinning <see cref="ThrottledLogger.Language"/> renders the suppressed-count suffix in that
+    /// language regardless of other callers' cultures, and that resetting it to <see langword="null"/> resumes
+    /// following <see cref="CultureInfo.CurrentUICulture"/> automatically.
+    /// </summary>
+    [Fact]
+    public void Language_Pinned_SuffixUsesPinnedCultureRegardlessOfCurrentUiCulture()
+    {
+        var interval = TimeSpan.FromDays(1);
+        var originalUiCulture = CultureInfo.CurrentUICulture;
+
+        try
+        {
+            // The ambient culture is deliberately the opposite of the pinned one, so the pinned value, not the
+            // ambient one, must be what determines the rendered suffix.
+            CultureInfo.CurrentUICulture = CultureInfo.InvariantCulture;
+            ThrottledLogger.Language = new CultureInfo("zh-CN");
+
+            var logger = new FakeLogger();
+            logger.LogInformationThrottled("key", interval, "Msg"); // logged
+            logger.LogInformationThrottled("key", interval, "Msg"); // suppressed (1)
+            logger.LogInformationThrottled("key", TimeSpan.Zero, "Msg"); // logged with pinned-language count
+
+            Assert.Contains("个消息被隐藏", logger.Entries[^1].Message);
+
+            // Resetting to null must resume following CurrentUICulture, not keep the pinned value.
+            ThrottledLogger.Language = null;
+
+            var autoLogger = new FakeLogger();
+            autoLogger.LogInformationThrottled("auto-key", interval, "Msg"); // logged
+            autoLogger.LogInformationThrottled("auto-key", interval, "Msg"); // suppressed (1)
+            autoLogger.LogInformationThrottled("auto-key", TimeSpan.Zero, "Msg"); // logged, follows CurrentUICulture
+
+            Assert.Contains("1 messages suppressed", autoLogger.Entries[^1].Message);
+        }
+        finally
+        {
+            ThrottledLogger.Language = null;
+            CultureInfo.CurrentUICulture = originalUiCulture;
         }
     }
 

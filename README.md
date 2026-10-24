@@ -65,6 +65,14 @@ The suffix is localized. On a `zh-CN` system the output is:
 Disk usage is above 95% (3个消息被隐藏)
 ```
 
+To pin the language instead of following the current culture automatically, set `ThrottledLogger.Language`:
+
+```csharp
+ThrottledLogger.Language = CultureInfo.GetCultureInfo("zh-Hans");
+```
+
+Set it back to `null` (the default) to resume following `CultureInfo.CurrentUICulture` automatically.
+
 ### Multiple independent keys
 
 Each key has its own throttle budget — different keys do not share a counter:
@@ -166,6 +174,14 @@ logger.LogErrorThrottled("payment-failed", TimeSpan.FromMinutes(1), exception, "
 ```
 Disk usage is above 95% (3个消息被隐藏)
 ```
+
+如需固定语言而不是跟随系统当前区域自动判断，可以设置 `ThrottledLogger.Language`：
+
+```csharp
+ThrottledLogger.Language = CultureInfo.GetCultureInfo("zh-Hans");
+```
+
+将其设回 `null`（默认值）即可恢复跟随 `CultureInfo.CurrentUICulture` 自动判断。
 
 ### 多个独立 key
 
