@@ -11,8 +11,6 @@
         <PackageProjectUrl>https://github.com/coldhighsun/ThrottledLogging</PackageProjectUrl>
         <RepositoryUrl>https://github.com/coldhighsun/ThrottledLogging</RepositoryUrl>
         <RepositoryType>git</RepositoryType>
-        <IncludeSymbols>True</IncludeSymbols>
-        <SymbolPackageFormat>snupkg</SymbolPackageFormat>
     </PropertyGroup>
     
     <ItemGroup>
