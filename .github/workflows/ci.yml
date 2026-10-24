@@ -85,7 +85,7 @@ jobs:
           if [[ "$TAG" == *-* ]]; then
             prerelease="--prerelease"
           fi
-          gh release create "$TAG" ./artifacts/*.nupkg ./artifacts/*.snupkg \
+          gh release create "$TAG" ./artifacts/*.nupkg \
             --title "ThrottledLogging $TAG" \
             --generate-notes \
             --verify-tag \
