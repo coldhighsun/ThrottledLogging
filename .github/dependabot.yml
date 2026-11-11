@@ -6,6 +6,10 @@ updates:
       interval: "weekly"
     open-pull-requests-limit: 10
     labels: ["dependencies"]
+    ignore:
+      # Keep the library on the net10.0 packages so net10 consumers are not forced onto 11.x.
+      - dependency-name: "Microsoft.Extensions.*"
+        update-types: ["version-update:semver-major"]
     groups:
       nuget-minor-patch:
         update-types: ["minor", "patch"]
