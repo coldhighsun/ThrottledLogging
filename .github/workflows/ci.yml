@@ -27,7 +27,9 @@ jobs:
 
       - uses: actions/setup-dotnet@v6
         with:
-          dotnet-version: 10.x
+          dotnet-version: |
+            10.x
+            11.x
 
       - run: dotnet restore
       - run: dotnet build --no-restore -c Debug
@@ -46,7 +48,9 @@ jobs:
 
       - uses: actions/setup-dotnet@v6
         with:
-          dotnet-version: 10.x
+          dotnet-version: |
+            10.x
+            11.x
 
       - run: dotnet pack src/ThrottledLogging/ThrottledLogging.csproj -c Release -o ./artifacts
 
@@ -72,7 +76,9 @@ jobs:
 
       - uses: actions/setup-dotnet@v6
         with:
-          dotnet-version: 10.x
+          dotnet-version: |
+            10.x
+            11.x
 
       - run: dotnet pack src/ThrottledLogging/ThrottledLogging.csproj -c Release -o ./artifacts
 
