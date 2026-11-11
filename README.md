@@ -1,6 +1,6 @@
 # ThrottledLogging
 
-**English** | [简体中文](https://github.com/coldhighsun/ThrottledLogging/blob/main/README.zh-CN.md)
+**English** | [简体中文](https://github.com/coldhighsun/ThrottledLogging/blob/main/README.zh-CN.md) | [繁體中文](https://github.com/coldhighsun/ThrottledLogging/blob/main/README.zh-TW.md)
 
 [![CI](https://github.com/coldhighsun/ThrottledLogging/actions/workflows/ci.yml/badge.svg)](https://github.com/coldhighsun/ThrottledLogging/actions/workflows/ci.yml)
 [![.NET](https://img.shields.io/badge/.NET-10.0-512BD4)](https://dotnet.microsoft.com/)
@@ -61,10 +61,16 @@ When a throttled message is allowed through after one or more suppressions, the 
 Disk usage is above 95% (3 messages suppressed)
 ```
 
-The suffix is localized. On a `zh-CN` system the output is:
+The suffix is localized (English, Simplified Chinese `zh-Hans`, and Traditional Chinese `zh-Hant`). On a `zh-CN` system the output is:
 
 ```
 Disk usage is above 95% (3个消息被隐藏)
+```
+
+and on a `zh-TW` system:
+
+```
+Disk usage is above 95% (3則訊息已被隱藏)
 ```
 
 To pin the language instead of following the current culture automatically, set `ThrottledLogger.Language`:
