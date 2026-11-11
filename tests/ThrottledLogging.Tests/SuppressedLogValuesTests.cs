@@ -128,6 +128,30 @@ public class SuppressedLogValuesTests
     }
 
     /// <summary>
+    /// Verifies that Traditional Chinese cultures (including regional ones) use the Traditional Chinese suffix.
+    /// </summary>
+    /// <param name="cultureName">The name of the culture to render the suffix in.</param>
+    [Theory]
+    [InlineData("zh-TW")]
+    [InlineData("zh-Hant")]
+    [InlineData("zh-HK")]
+    [InlineData("zh-MO")]
+    public void ToString_TraditionalChineseCulture_UsesTraditionalSuffix(string cultureName)
+    {
+        Messages.Culture = new CultureInfo(cultureName);
+        try
+        {
+            var state = SuppressedLogValues.Create("Msg", [], 3);
+
+            Assert.Equal("Msg (3則訊息已被隱藏)", state.ToString());
+        }
+        finally
+        {
+            Messages.Culture = null;
+        }
+    }
+
+    /// <summary>
     /// Verifies that dynamically built templates cannot grow the template cache beyond its limit, and that templates
     /// no longer cached still get the correct <c>{OriginalFormat}</c>.
     /// </summary>
