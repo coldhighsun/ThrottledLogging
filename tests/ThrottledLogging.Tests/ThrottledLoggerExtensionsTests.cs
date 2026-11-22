@@ -1,5 +1,6 @@
 using System.Globalization;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Time.Testing;
 using ThrottledLogging.Resources;
 using Xunit;
 
@@ -49,14 +50,16 @@ public class ThrottledLoggerExtensionsTests
         Messages.Culture = CultureInfo.InvariantCulture;
         try
         {
+            var time = new FakeTimeProvider();
             var logger = new FakeLogger();
+            ThrottledLogger.Register(logger, new ThrottledLogger(time));
             var interval = TimeSpan.FromMilliseconds(1000);
 
             logger.LogInformationThrottled("key", interval, "Msg"); // logged
             logger.LogInformationThrottled("key", interval, "Msg"); // suppressed (1)
             logger.LogInformationThrottled("key", interval, "Msg"); // suppressed (2)
 
-            Thread.Sleep(2000);
+            time.Advance(TimeSpan.FromMilliseconds(2000));
             logger.LogInformationThrottled("key", interval, "Msg"); // logged with count
 
             Assert.Equal(2, logger.Entries.Count);
@@ -77,19 +80,22 @@ public class ThrottledLoggerExtensionsTests
         try
         {
             var interval = TimeSpan.FromMilliseconds(1000);
+            var time = new FakeTimeProvider();
 
             Messages.Culture = CultureInfo.InvariantCulture;
             var enLogger = new FakeLogger();
+            ThrottledLogger.Register(enLogger, new ThrottledLogger(time));
             enLogger.LogInformationThrottled("en-key", interval, "Msg"); // logged
             enLogger.LogInformationThrottled("en-key", interval, "Msg"); // suppressed (1)
-            Thread.Sleep(1500);
+            time.Advance(TimeSpan.FromMilliseconds(1500));
             enLogger.LogInformationThrottled("en-key", interval, "Msg"); // logged with count, caches en suffix for "Msg"
 
             Messages.Culture = new CultureInfo("zh-CN");
             var zhLogger = new FakeLogger();
+            ThrottledLogger.Register(zhLogger, new ThrottledLogger(time));
             zhLogger.LogInformationThrottled("zh-key", interval, "Msg"); // logged
             zhLogger.LogInformationThrottled("zh-key", interval, "Msg"); // suppressed (1)
-            Thread.Sleep(1500);
+            time.Advance(TimeSpan.FromMilliseconds(1500));
             zhLogger.LogInformationThrottled("zh-key", interval, "Msg"); // logged with count, must use zh suffix
 
             Assert.Contains("messages suppressed", enLogger.Entries[1].Message);
@@ -204,13 +210,15 @@ public class ThrottledLoggerExtensionsTests
         Messages.Culture = CultureInfo.InvariantCulture;
         try
         {
+            var time = new FakeTimeProvider();
             var logger = new FakeLogger();
+            ThrottledLogger.Register(logger, new ThrottledLogger(time));
             var interval = TimeSpan.FromMilliseconds(1000);
 
             logger.LogInformationThrottled("key", interval, null);
             logger.LogInformationThrottled("key", interval, null); // suppressed (1)
 
-            Thread.Sleep(2000);
+            time.Advance(TimeSpan.FromMilliseconds(2000));
             logger.LogInformationThrottled("key", interval, null);
 
             Assert.Equal(2, logger.Entries.Count);

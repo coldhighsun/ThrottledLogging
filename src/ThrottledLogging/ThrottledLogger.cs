@@ -1,6 +1,5 @@
 using Microsoft.Extensions.Logging;
 using System.Collections.Concurrent;
-using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Runtime.CompilerServices;
@@ -15,200 +14,9 @@ namespace ThrottledLogging;
 public class ThrottledLogger
 {
     /// <summary>
-    /// Represents a tracked log entry: the start of its throttle window, the number of suppressed occurrences in that window,
-    /// the timestamp of the most recent call, and the longest throttle interval used in that window.
-    /// </summary>
-    /// <remarks>
-    /// An entry is a mutable reference type so that suppressed calls, the common case, update it in place without allocating.
-    /// Its suppressed count doubles as the linearization point: a thread that starts a new window, or cleanup that removes
-    /// the entry, first seals it (see <see cref="TrySeal"/>), after which no suppressed call can be recorded on it and
-    /// callers that find it sealed retry against the entry that replaced it.
-    /// </remarks>
-    private sealed class Entry
-    {
-        /// <summary>
-        /// The value of <see cref="_suppressedCount"/> once the entry is sealed. Real counts are never negative.
-        /// </summary>
-        private const int Sealed = -1;
-
-        /// <summary>
-        /// The number of log calls suppressed since the window started, or <see cref="Sealed"/>.
-        /// </summary>
-        private int _suppressedCount;
-
-        /// <summary>
-        /// The <see cref="Stopwatch"/> timestamp of the most recent call for the key, whether logged or suppressed.
-        /// </summary>
-        private long _lastSeenTick;
-
-        /// <summary>
-        /// The longest throttle interval passed for the key in this window, in <see cref="TimeSpan"/> ticks.
-        /// </summary>
-        private long _intervalTicks;
-
-        /// <summary>
-        /// Initializes a new instance of the <see cref="Entry"/> class for a window that starts at <paramref name="lastLogTick"/>.
-        /// </summary>
-        /// <param name="lastLogTick">The <see cref="Stopwatch"/> timestamp when the key was logged, which starts the window.</param>
-        /// <param name="interval">The throttle interval passed by the call that logged the key.</param>
-        public Entry(long lastLogTick, TimeSpan interval)
-        {
-            LastLogTick = lastLogTick;
-            _lastSeenTick = lastLogTick;
-            _intervalTicks = interval.Ticks;
-        }
-
-        /// <summary>
-        /// The <see cref="Stopwatch"/> timestamp when the key was logged, which started the current window.
-        /// </summary>
-        public long LastLogTick
-        {
-            get;
-        }
-
-        /// <summary>
-        /// The longest throttle interval passed for the key in this window.
-        /// </summary>
-        public TimeSpan Interval => TimeSpan.FromTicks(Volatile.Read(ref _intervalTicks));
-
-        /// <summary>
-        /// The number of log calls suppressed in this window, or 0 if the entry is sealed.
-        /// </summary>
-        public int SuppressedCount => Math.Max(Volatile.Read(ref _suppressedCount), 0);
-
-        /// <summary>
-        /// Records a suppressed call, unless the entry has been sealed.
-        /// </summary>
-        /// <param name="tick">The <see cref="Stopwatch"/> timestamp of the call.</param>
-        /// <param name="interval">The throttle interval passed by the call.</param>
-        /// <returns>
-        /// <see langword="true"/> if the call was recorded on this entry; <see langword="false"/> if the entry is sealed
-        /// and the caller must look the key up again.
-        /// </returns>
-        public bool TrySuppress(long tick, TimeSpan interval)
-        {
-            // The timestamps are updated before the count, so cleanup, which seals by compare-exchanging the count it
-            // read before them, never seals an entry on stale timestamps once this call has counted.
-            RaiseTo(ref _lastSeenTick, tick);
-            RaiseTo(ref _intervalTicks, interval.Ticks);
-
-            var count = Volatile.Read(ref _suppressedCount);
-
-            while (true)
-            {
-                if (count == Sealed)
-                {
-                    return false;
-                }
-
-                var next = IncrementSaturating(count);
-                if (next == count)
-                {
-                    return true;
-                }
-
-                var previous = Interlocked.CompareExchange(ref _suppressedCount, next, count);
-                if (previous == count)
-                {
-                    return true;
-                }
-
-                count = previous;
-            }
-        }
-
-        /// <summary>
-        /// Seals the entry so that no further suppressed call can be recorded on it.
-        /// </summary>
-        /// <param name="suppressedCount">The number of calls suppressed in this window, if the call sealed the entry.</param>
-        /// <returns><see langword="true"/> if this call sealed the entry; <see langword="false"/> if it was already sealed.</returns>
-        public bool TrySeal(out int suppressedCount)
-        {
-            var count = Interlocked.Exchange(ref _suppressedCount, Sealed);
-
-            suppressedCount = Math.Max(count, 0);
-            return count != Sealed;
-        }
-
-        /// <summary>
-        /// Seals the entry if it has been idle longer than <paramref name="expiry"/> and its throttle window has closed.
-        /// </summary>
-        /// <param name="tick">The current <see cref="Stopwatch"/> timestamp.</param>
-        /// <param name="expiry">How long the entry must have been idle.</param>
-        /// <returns>
-        /// <see langword="true"/> if the entry was expired and this call sealed it; <see langword="false"/> if it is still
-        /// in use, was updated concurrently, or was already sealed.
-        /// </returns>
-        public bool TrySealIfExpired(long tick, TimeSpan expiry)
-        {
-            // The count is read first: if a suppressed call counts after this point, the compare-exchange below fails.
-            var count = Volatile.Read(ref _suppressedCount);
-            if (count == Sealed)
-            {
-                return false;
-            }
-
-            var lastSeenTick = Volatile.Read(ref _lastSeenTick);
-
-            return Stopwatch.GetElapsedTime(lastSeenTick, tick) > expiry
-                   && Stopwatch.GetElapsedTime(LastLogTick, tick) >= Interval
-                   && Interlocked.CompareExchange(ref _suppressedCount, Sealed, count) == count;
-        }
-
-        /// <summary>
-        /// Atomically raises <paramref name="location"/> to <paramref name="value"/> if it is currently lower.
-        /// </summary>
-        /// <param name="location">The field to raise.</param>
-        /// <param name="value">The value to raise it to.</param>
-        private static void RaiseTo(ref long location, long value)
-        {
-            var current = Volatile.Read(ref location);
-
-            while (value > current)
-            {
-                var previous = Interlocked.CompareExchange(ref location, value, current);
-                if (previous == current)
-                {
-                    return;
-                }
-
-                current = previous;
-            }
-        }
-    }
-
-    /// <summary>
-    /// The longest cleanup period accepted by <see cref="Configure(TimeSpan, TimeSpan)"/>, which is the longest period
-    /// supported by <see cref="Timer"/> (4294967294 milliseconds, about 49.7 days).
-    /// </summary>
-    private static readonly TimeSpan MaxCleanupPeriod = TimeSpan.FromMilliseconds(uint.MaxValue - 1);
-
-    /// <summary>
-    /// The shortest cleanup period accepted by <see cref="Configure(TimeSpan, TimeSpan)"/>. <see cref="Timer"/> truncates
-    /// periods to whole milliseconds, and a period that truncates to zero would run cleanup only once.
-    /// </summary>
-    private static readonly TimeSpan MinCleanupPeriod = TimeSpan.FromMilliseconds(1);
-
-    /// <summary>
-    /// Serializes <see cref="Configure(TimeSpan, TimeSpan)"/> calls, so the expiry and cleanup period are applied together.
-    /// </summary>
-    private static readonly Lock ConfigureLock = new();
-
-    /// <summary>
-    /// Represents the timer used to schedule periodic cleanup operations.
-    /// </summary>
-    private static readonly Timer CleanupTimer;
-
-    /// <summary>
     /// A thread-safe mapping of <see cref="ILogger"/> instances to their corresponding <see cref="ThrottledLogger"/> instances,
     /// </summary>
     private static readonly ConditionalWeakTable<ILogger, ThrottledLogger> Instances = new();
-
-    /// <summary>
-    /// The age threshold, in <see cref="TimeSpan"/> ticks, after which a log entry is considered expired and eligible for cleanup.
-    /// Stored as a <see cref="long"/> and accessed through <see cref="Volatile"/>, so the cleanup thread never reads a torn value.
-    /// </summary>
-    private static long _expiryTicks;
 
     /// <summary>
     /// A thread-safe dictionary that tracks log keys and their associated log entry data (last log timestamp and suppressed count) for this throttler instance.
@@ -216,15 +24,28 @@ public class ThrottledLogger
     private readonly ConcurrentDictionary<string, Entry> _tracker = new();
 
     /// <summary>
-    /// Initializes static members of the <see cref="ThrottledLogger"/> class, setting up the default cleanup period and starting the background timer for cleanup of expired entries.
+    /// The provider of the timestamps that start and measure throttle windows.
     /// </summary>
-    static ThrottledLogger()
-    {
-        var defaultExpiry = TimeSpan.FromHours(1);
-        var defaultCleanupPeriod = TimeSpan.FromHours(1);
+    private readonly TimeProvider _timeProvider;
 
-        _expiryTicks = defaultExpiry.Ticks;
-        CleanupTimer = CreateCleanupTimer(OnCleanupTimer, defaultCleanupPeriod);
+    /// <summary>
+    /// Initializes a new instance of the <see cref="ThrottledLogger"/> class that measures time with <see cref="TimeProvider.System"/>.
+    /// </summary>
+    public ThrottledLogger()
+        : this(TimeProvider.System)
+    {
+    }
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="ThrottledLogger"/> class that measures time with <paramref name="timeProvider"/>.
+    /// </summary>
+    /// <param name="timeProvider">The provider of the timestamps used to start and measure throttle windows.</param>
+    /// <exception cref="ArgumentNullException"><paramref name="timeProvider"/> is <see langword="null"/>.</exception>
+    public ThrottledLogger(TimeProvider timeProvider)
+    {
+        ArgumentNullException.ThrowIfNull(timeProvider);
+
+        _timeProvider = timeProvider;
     }
 
     /// <summary>
@@ -237,47 +58,6 @@ public class ThrottledLogger
     {
         get => Messages.Culture;
         set => Messages.Culture = value;
-    }
-
-    /// <summary>
-    /// Configures the global expiry threshold and cleanup timer period for all <see cref="ThrottledLogger"/> instances.
-    /// </summary>
-    /// <param name="expiry">
-    /// How long an entry must be idle (no logged or suppressed calls) before it is eligible for cleanup.
-    /// Entries whose throttle interval has not yet elapsed are never removed, regardless of this value,
-    /// so an entry is retained for at least its throttle interval. If one key is used with different intervals, the
-    /// retained interval is the one passed to the most recently logged call (or longer, if a later suppressed call
-    /// passed a longer one), so an expiry shorter than the longest interval may let that longer interval end early.
-    /// Avoid combining very long intervals
-    /// (such as <see cref="TimeSpan.MaxValue"/>) with an unbounded set of keys, as memory then grows with the key count.
-    /// An entry removed by cleanup discards any suppressed count not yet reported, so the next message for that key
-    /// is logged without the suppressed-count suffix.
-    /// </param>
-    /// <param name="cleanupPeriod">
-    /// How often the background cleanup timer runs, from 1 millisecond up to 4294967294 milliseconds (about 49.7 days).
-    /// Pass <see cref="Timeout.InfiniteTimeSpan"/> to disable cleanup.
-    /// </param>
-    /// <exception cref="ArgumentOutOfRangeException">
-    /// <paramref name="expiry"/> is negative, or <paramref name="cleanupPeriod"/> is less than 1 millisecond (other than
-    /// <see cref="Timeout.InfiniteTimeSpan"/>) or greater than 4294967294 milliseconds.
-    /// </exception>
-    public static void Configure(TimeSpan expiry, TimeSpan cleanupPeriod)
-    {
-        ArgumentOutOfRangeException.ThrowIfLessThan(expiry, TimeSpan.Zero);
-
-        if (cleanupPeriod != Timeout.InfiniteTimeSpan)
-        {
-            ArgumentOutOfRangeException.ThrowIfLessThan(cleanupPeriod, MinCleanupPeriod);
-            ArgumentOutOfRangeException.ThrowIfGreaterThan(cleanupPeriod, MaxCleanupPeriod);
-        }
-
-        // Applied together so concurrent calls cannot pair one call's expiry with another's period. The expiry is written
-        // before the timer is changed; the timer's internal locking publishes it to the callback thread.
-        lock (ConfigureLock)
-        {
-            Volatile.Write(ref _expiryTicks, expiry.Ticks);
-            CleanupTimer.Change(cleanupPeriod, cleanupPeriod);
-        }
     }
 
     /// <summary>
@@ -299,7 +79,7 @@ public class ThrottledLogger
     {
         ArgumentNullException.ThrowIfNull(key);
 
-        var tick = Stopwatch.GetTimestamp();
+        var tick = _timeProvider.GetTimestamp();
 
         while (true)
         {
@@ -316,7 +96,7 @@ public class ThrottledLogger
 
             // A non-positive interval always logs. Checked explicitly because the elapsed time is negative when a
             // concurrent call with a later timestamp has already updated the entry.
-            if (interval > TimeSpan.Zero && Stopwatch.GetElapsedTime(existing.LastLogTick, tick) < interval)
+            if (interval > TimeSpan.Zero && _timeProvider.GetElapsedTime(existing.LastLogTick, tick) < interval)
             {
                 if (existing.TrySuppress(tick, interval))
                 {
@@ -394,6 +174,276 @@ public class ThrottledLogger
         => count == int.MaxValue ? count : count + 1;
 
     /// <summary>
+    /// Returns the <see cref="ThrottledLogger"/> associated with the given <paramref name="logger"/>,
+    /// creating one if it does not yet exist.
+    /// </summary>
+    internal static ThrottledLogger GetOrCreate(ILogger logger)
+        => Instances.GetOrCreateValue(logger);
+
+    /// <summary>
+    /// Gets the <see cref="ThrottledLogger"/> associated with the given <paramref name="logger"/>, without creating one.
+    /// </summary>
+    /// <param name="logger">The logger whose throttler to get.</param>
+    /// <param name="throttler">The associated throttler, if one exists.</param>
+    /// <returns><see langword="true"/> if a throttler exists for <paramref name="logger"/>; otherwise <see langword="false"/>.</returns>
+    internal static bool TryGet(ILogger logger, [NotNullWhen(true)] out ThrottledLogger? throttler)
+        => Instances.TryGetValue(logger, out throttler);
+
+    /// <summary>
+    /// Associates <paramref name="throttler"/> with <paramref name="logger"/>, replacing any existing association,
+    /// so the throttled logging extension methods use it. Lets tests supply a throttler with a controlled clock.
+    /// </summary>
+    /// <param name="logger">The logger to associate the throttler with.</param>
+    /// <param name="throttler">The throttler the extension methods should use for <paramref name="logger"/>.</param>
+    internal static void Register(ILogger logger, ThrottledLogger throttler)
+        => Instances.AddOrUpdate(logger, throttler);
+
+    /// <summary>
+    /// Represents a tracked log entry: the start of its throttle window, the number of suppressed occurrences in that window,
+    /// the timestamp of the most recent call, and the longest throttle interval used in that window.
+    /// </summary>
+    /// <remarks>
+    /// An entry is a mutable reference type so that suppressed calls, the common case, update it in place without allocating.
+    /// Its suppressed count doubles as the linearization point: a thread that starts a new window, or cleanup that removes
+    /// the entry, first seals it (see <see cref="TrySeal"/>), after which no suppressed call can be recorded on it and
+    /// callers that find it sealed retry against the entry that replaced it.
+    /// </remarks>
+    private sealed class Entry
+    {
+        /// <summary>
+        /// The value of <see cref="_suppressedCount"/> once the entry is sealed. Real counts are never negative.
+        /// </summary>
+        private const int Sealed = -1;
+
+        /// <summary>
+        /// The number of log calls suppressed since the window started, or <see cref="Sealed"/>.
+        /// </summary>
+        private int _suppressedCount;
+
+        /// <summary>
+        /// The <see cref="TimeProvider.GetTimestamp"/> timestamp of the most recent call for the key, whether logged or suppressed.
+        /// </summary>
+        private long _lastSeenTick;
+
+        /// <summary>
+        /// The longest throttle interval passed for the key in this window, in <see cref="TimeSpan"/> ticks.
+        /// </summary>
+        private long _intervalTicks;
+
+        /// <summary>
+        /// Initializes a new instance of the <see cref="Entry"/> class for a window that starts at <paramref name="lastLogTick"/>.
+        /// </summary>
+        /// <param name="lastLogTick">The <see cref="TimeProvider.GetTimestamp"/> timestamp when the key was logged, which starts the window.</param>
+        /// <param name="interval">The throttle interval passed by the call that logged the key.</param>
+        public Entry(long lastLogTick, TimeSpan interval)
+        {
+            LastLogTick = lastLogTick;
+            _lastSeenTick = lastLogTick;
+            _intervalTicks = interval.Ticks;
+        }
+
+        /// <summary>
+        /// The <see cref="TimeProvider.GetTimestamp"/> timestamp when the key was logged, which started the current window.
+        /// </summary>
+        public long LastLogTick
+        {
+            get;
+        }
+
+        /// <summary>
+        /// The longest throttle interval passed for the key in this window.
+        /// </summary>
+        public TimeSpan Interval => TimeSpan.FromTicks(Volatile.Read(ref _intervalTicks));
+
+        /// <summary>
+        /// The number of log calls suppressed in this window, or 0 if the entry is sealed.
+        /// </summary>
+        public int SuppressedCount => Math.Max(Volatile.Read(ref _suppressedCount), 0);
+
+        /// <summary>
+        /// Records a suppressed call, unless the entry has been sealed.
+        /// </summary>
+        /// <param name="tick">The <see cref="TimeProvider.GetTimestamp"/> timestamp of the call.</param>
+        /// <param name="interval">The throttle interval passed by the call.</param>
+        /// <returns>
+        /// <see langword="true"/> if the call was recorded on this entry; <see langword="false"/> if the entry is sealed
+        /// and the caller must look the key up again.
+        /// </returns>
+        public bool TrySuppress(long tick, TimeSpan interval)
+        {
+            // The timestamps are updated before the count, so cleanup, which seals by compare-exchanging the count it
+            // read before them, never seals an entry on stale timestamps once this call has counted.
+            RaiseTo(ref _lastSeenTick, tick);
+            RaiseTo(ref _intervalTicks, interval.Ticks);
+
+            var count = Volatile.Read(ref _suppressedCount);
+
+            while (true)
+            {
+                if (count == Sealed)
+                {
+                    return false;
+                }
+
+                var next = IncrementSaturating(count);
+                if (next == count)
+                {
+                    return true;
+                }
+
+                var previous = Interlocked.CompareExchange(ref _suppressedCount, next, count);
+                if (previous == count)
+                {
+                    return true;
+                }
+
+                count = previous;
+            }
+        }
+
+        /// <summary>
+        /// Seals the entry so that no further suppressed call can be recorded on it.
+        /// </summary>
+        /// <param name="suppressedCount">The number of calls suppressed in this window, if the call sealed the entry.</param>
+        /// <returns><see langword="true"/> if this call sealed the entry; <see langword="false"/> if it was already sealed.</returns>
+        public bool TrySeal(out int suppressedCount)
+        {
+            var count = Interlocked.Exchange(ref _suppressedCount, Sealed);
+
+            suppressedCount = Math.Max(count, 0);
+            return count != Sealed;
+        }
+
+        /// <summary>
+        /// Seals the entry if it has been idle longer than <paramref name="expiry"/> and its throttle window has closed.
+        /// </summary>
+        /// <param name="tick">The current timestamp, from <paramref name="timeProvider"/>.</param>
+        /// <param name="expiry">How long the entry must have been idle.</param>
+        /// <param name="timeProvider">The provider that produced the entry's timestamps and <paramref name="tick"/>.</param>
+        /// <returns>
+        /// <see langword="true"/> if the entry was expired and this call sealed it; <see langword="false"/> if it is still
+        /// in use, was updated concurrently, or was already sealed.
+        /// </returns>
+        public bool TrySealIfExpired(long tick, TimeSpan expiry, TimeProvider timeProvider)
+        {
+            // The count is read first: if a suppressed call counts after this point, the compare-exchange below fails.
+            var count = Volatile.Read(ref _suppressedCount);
+            if (count == Sealed)
+            {
+                return false;
+            }
+
+            var lastSeenTick = Volatile.Read(ref _lastSeenTick);
+
+            return timeProvider.GetElapsedTime(lastSeenTick, tick) > expiry
+                   && timeProvider.GetElapsedTime(LastLogTick, tick) >= Interval
+                   && Interlocked.CompareExchange(ref _suppressedCount, Sealed, count) == count;
+        }
+
+        /// <summary>
+        /// Atomically raises <paramref name="location"/> to <paramref name="value"/> if it is currently lower.
+        /// </summary>
+        /// <param name="location">The field to raise.</param>
+        /// <param name="value">The value to raise it to.</param>
+        private static void RaiseTo(ref long location, long value)
+        {
+            var current = Volatile.Read(ref location);
+
+            while (value > current)
+            {
+                var previous = Interlocked.CompareExchange(ref location, value, current);
+                if (previous == current)
+                {
+                    return;
+                }
+
+                current = previous;
+            }
+        }
+    }
+
+    /// <summary>
+    /// The longest cleanup period accepted by <see cref="Configure(TimeSpan, TimeSpan)"/>, which is the longest period
+    /// supported by <see cref="Timer"/> (4294967294 milliseconds, about 49.7 days).
+    /// </summary>
+    private static readonly TimeSpan MaxCleanupPeriod = TimeSpan.FromMilliseconds(uint.MaxValue - 1);
+
+    /// <summary>
+    /// The shortest cleanup period accepted by <see cref="Configure(TimeSpan, TimeSpan)"/>. <see cref="Timer"/> truncates
+    /// periods to whole milliseconds, and a period that truncates to zero would run cleanup only once.
+    /// </summary>
+    private static readonly TimeSpan MinCleanupPeriod = TimeSpan.FromMilliseconds(1);
+
+    /// <summary>
+    /// Serializes <see cref="Configure(TimeSpan, TimeSpan)"/> calls, so the expiry and cleanup period are applied together.
+    /// </summary>
+    private static readonly Lock ConfigureLock = new();
+
+    /// <summary>
+    /// Represents the timer used to schedule periodic cleanup operations.
+    /// </summary>
+    private static readonly Timer CleanupTimer;
+
+    /// <summary>
+    /// The age threshold, in <see cref="TimeSpan"/> ticks, after which a log entry is considered expired and eligible for cleanup.
+    /// Stored as a <see cref="long"/> and accessed through <see cref="Volatile"/>, so the cleanup thread never reads a torn value.
+    /// </summary>
+    private static long _expiryTicks;
+
+    /// <summary>
+    /// Initializes static members of the <see cref="ThrottledLogger"/> class, setting up the default cleanup period and starting the background timer for cleanup of expired entries.
+    /// </summary>
+    static ThrottledLogger()
+    {
+        var defaultExpiry = TimeSpan.FromHours(1);
+        var defaultCleanupPeriod = TimeSpan.FromHours(1);
+
+        _expiryTicks = defaultExpiry.Ticks;
+        CleanupTimer = CreateCleanupTimer(OnCleanupTimer, defaultCleanupPeriod);
+    }
+
+    /// <summary>
+    /// Configures the global expiry threshold and cleanup timer period for all <see cref="ThrottledLogger"/> instances.
+    /// </summary>
+    /// <param name="expiry">
+    /// How long an entry must be idle (no logged or suppressed calls) before it is eligible for cleanup.
+    /// Entries whose throttle interval has not yet elapsed are never removed, regardless of this value,
+    /// so an entry is retained for at least its throttle interval. If one key is used with different intervals, the
+    /// retained interval is the one passed to the most recently logged call (or longer, if a later suppressed call
+    /// passed a longer one), so an expiry shorter than the longest interval may let that longer interval end early.
+    /// Avoid combining very long intervals
+    /// (such as <see cref="TimeSpan.MaxValue"/>) with an unbounded set of keys, as memory then grows with the key count.
+    /// An entry removed by cleanup discards any suppressed count not yet reported, so the next message for that key
+    /// is logged without the suppressed-count suffix.
+    /// </param>
+    /// <param name="cleanupPeriod">
+    /// How often the background cleanup timer runs, from 1 millisecond up to 4294967294 milliseconds (about 49.7 days).
+    /// Pass <see cref="Timeout.InfiniteTimeSpan"/> to disable cleanup.
+    /// </param>
+    /// <exception cref="ArgumentOutOfRangeException">
+    /// <paramref name="expiry"/> is negative, or <paramref name="cleanupPeriod"/> is less than 1 millisecond (other than
+    /// <see cref="Timeout.InfiniteTimeSpan"/>) or greater than 4294967294 milliseconds.
+    /// </exception>
+    public static void Configure(TimeSpan expiry, TimeSpan cleanupPeriod)
+    {
+        ArgumentOutOfRangeException.ThrowIfLessThan(expiry, TimeSpan.Zero);
+
+        if (cleanupPeriod != Timeout.InfiniteTimeSpan)
+        {
+            ArgumentOutOfRangeException.ThrowIfLessThan(cleanupPeriod, MinCleanupPeriod);
+            ArgumentOutOfRangeException.ThrowIfGreaterThan(cleanupPeriod, MaxCleanupPeriod);
+        }
+
+        // Applied together so concurrent calls cannot pair one call's expiry with another's period. The expiry is written
+        // before the timer is changed; the timer's internal locking publishes it to the callback thread.
+        lock (ConfigureLock)
+        {
+            Volatile.Write(ref _expiryTicks, expiry.Ticks);
+            CleanupTimer.Change(cleanupPeriod, cleanupPeriod);
+        }
+    }
+
+    /// <summary>
     /// Creates a timer that invokes <paramref name="callback"/> every <paramref name="period"/>, without capturing
     /// the caller's execution context.
     /// </summary>
@@ -417,44 +467,30 @@ public class ThrottledLogger
     }
 
     /// <summary>
-    /// Returns the <see cref="ThrottledLogger"/> associated with the given <paramref name="logger"/>,
-    /// creating one if it does not yet exist.
-    /// </summary>
-    internal static ThrottledLogger GetOrCreate(ILogger logger)
-        => Instances.GetOrCreateValue(logger);
-
-    /// <summary>
-    /// Gets the <see cref="ThrottledLogger"/> associated with the given <paramref name="logger"/>, without creating one.
-    /// </summary>
-    /// <param name="logger">The logger whose throttler to get.</param>
-    /// <param name="throttler">The associated throttler, if one exists.</param>
-    /// <returns><see langword="true"/> if a throttler exists for <paramref name="logger"/>; otherwise <see langword="false"/>.</returns>
-    internal static bool TryGet(ILogger logger, [NotNullWhen(true)] out ThrottledLogger? throttler)
-        => Instances.TryGetValue(logger, out throttler);
-
-    /// <summary>
     /// Timer callback that triggers cleanup of expired entries across all registered throttler instances.
     /// </summary>
     private static void OnCleanupTimer(object? state)
     {
+        var expiry = TimeSpan.FromTicks(Volatile.Read(ref _expiryTicks));
+
         foreach (var (_, throttler) in Instances)
         {
-            throttler.Cleanup();
+            throttler.Cleanup(expiry);
         }
     }
 
     /// <summary>
-    /// Removes entries that have been idle longer than the configured expiry threshold and whose throttle window has closed.
+    /// Removes entries that have been idle longer than <paramref name="expiry"/> and whose throttle window has closed.
     /// </summary>
-    private void Cleanup()
+    /// <param name="expiry">How long an entry must have been idle to be removed.</param>
+    internal void Cleanup(TimeSpan expiry)
     {
-        var tick = Stopwatch.GetTimestamp();
-        var expiry = TimeSpan.FromTicks(Volatile.Read(ref _expiryTicks));
+        var tick = _timeProvider.GetTimestamp();
 
         foreach (var kv in _tracker)
         {
             // Sealing fails if the entry was updated since it was read, so a concurrently refreshed entry is never discarded.
-            if (kv.Value.TrySealIfExpired(tick, expiry))
+            if (kv.Value.TrySealIfExpired(tick, expiry, _timeProvider))
             {
                 _tracker.TryRemove(kv);
             }
