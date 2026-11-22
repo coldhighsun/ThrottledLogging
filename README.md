@@ -3,10 +3,10 @@
 # ThrottledLogging
 
 [![CI](https://github.com/coldhighsun/ThrottledLogging/actions/workflows/ci.yml/badge.svg)](https://github.com/coldhighsun/ThrottledLogging/actions/workflows/ci.yml)
-[![NuGet Stable](https://img.shields.io/nuget/v/ThrottledLogging?label=NuGet%20Stable)](https://www.nuget.org/packages/ThrottledLogging)
-[![NuGet Preview](https://img.shields.io/nuget/vpre/ThrottledLogging?label=NuGet%20Preview)](https://www.nuget.org/packages/ThrottledLogging/absoluteLatest)
+[![nuget](https://img.shields.io/nuget/v/ThrottledLogging?label=nuget)](https://www.nuget.org/packages/ThrottledLogging)
 [![NuGet Downloads](https://img.shields.io/nuget/dt/ThrottledLogging)](https://www.nuget.org/packages/ThrottledLogging)
 [![Latest Release](https://img.shields.io/github/v/release/coldhighsun/ThrottledLogging)](https://github.com/coldhighsun/ThrottledLogging/releases/latest)
+[![Latest Pre-release](https://img.shields.io/github/v/release/coldhighsun/ThrottledLogging?include_prereleases&label=pre-release)](https://github.com/coldhighsun/ThrottledLogging/releases)
 [![Open Issues](https://img.shields.io/github/issues/coldhighsun/ThrottledLogging)](https://github.com/coldhighsun/ThrottledLogging/issues)
 [![Open PRs](https://img.shields.io/github/issues-pr/coldhighsun/ThrottledLogging)](https://github.com/coldhighsun/ThrottledLogging/pulls)
 [![Last Commit](https://img.shields.io/github/last-commit/coldhighsun/ThrottledLogging)](https://github.com/coldhighsun/ThrottledLogging/commits/main)
