@@ -41,7 +41,7 @@ public partial class ThrottledLogger
     /// </summary>
     /// <param name="timeProvider">The provider of the timestamps used to start and measure throttle windows.</param>
     /// <exception cref="ArgumentNullException"><paramref name="timeProvider"/> is <see langword="null"/>.</exception>
-    public ThrottledLogger(TimeProvider timeProvider)
+    internal ThrottledLogger(TimeProvider timeProvider)
     {
         ArgumentNullException.ThrowIfNull(timeProvider);
 
