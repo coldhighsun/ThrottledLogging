@@ -1,17 +1,24 @@
+<div align="center">
+
 # ThrottledLogging
 
-**English** | [简体中文](https://github.com/coldhighsun/ThrottledLogging/blob/main/README.zh-CN.md) | [繁體中文](https://github.com/coldhighsun/ThrottledLogging/blob/main/README.zh-TW.md)
-
 [![CI](https://github.com/coldhighsun/ThrottledLogging/actions/workflows/ci.yml/badge.svg)](https://github.com/coldhighsun/ThrottledLogging/actions/workflows/ci.yml)
-[![.NET](https://img.shields.io/badge/.NET-10.0-512BD4)](https://dotnet.microsoft.com/)
 [![NuGet Stable](https://img.shields.io/nuget/v/ThrottledLogging?label=NuGet%20Stable)](https://www.nuget.org/packages/ThrottledLogging)
 [![NuGet Preview](https://img.shields.io/nuget/vpre/ThrottledLogging?label=NuGet%20Preview)](https://www.nuget.org/packages/ThrottledLogging/absoluteLatest)
 [![NuGet Downloads](https://img.shields.io/nuget/dt/ThrottledLogging)](https://www.nuget.org/packages/ThrottledLogging)
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![Latest Release](https://img.shields.io/github/v/release/coldhighsun/ThrottledLogging)](https://github.com/coldhighsun/ThrottledLogging/releases/latest)
+[![Open Issues](https://img.shields.io/github/issues/coldhighsun/ThrottledLogging)](https://github.com/coldhighsun/ThrottledLogging/issues)
+[![Open PRs](https://img.shields.io/github/issues-pr/coldhighsun/ThrottledLogging)](https://github.com/coldhighsun/ThrottledLogging/pulls)
+[![Last Commit](https://img.shields.io/github/last-commit/coldhighsun/ThrottledLogging)](https://github.com/coldhighsun/ThrottledLogging/commits/main)
 [![GitHub Stars](https://img.shields.io/github/stars/coldhighsun/ThrottledLogging?style=flat)](https://github.com/coldhighsun/ThrottledLogging/stargazers)
-[![GitHub Issues](https://img.shields.io/github/issues/coldhighsun/ThrottledLogging)](https://github.com/coldhighsun/ThrottledLogging/issues)
-[![GitHub Open PRs](https://img.shields.io/github/issues-pr/coldhighsun/ThrottledLogging)](https://github.com/coldhighsun/ThrottledLogging/pulls)
-[![GitHub last commit](https://img.shields.io/github/last-commit/coldhighsun/ThrottledLogging)](https://github.com/coldhighsun/ThrottledLogging/commits/main)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://github.com/coldhighsun/ThrottledLogging/blob/main/LICENSE)
+[![.NET](https://img.shields.io/badge/.NET-10.0-512BD4?logo=dotnet)](https://dotnet.microsoft.com/)
+
+English | [简体中文](https://github.com/coldhighsun/ThrottledLogging/blob/main/README.zh-CN.md) | [繁體中文](https://github.com/coldhighsun/ThrottledLogging/blob/main/README.zh-TW.md)
+
+</div>
+
+---
 
 A time-interval-based log throttler for `Microsoft.Extensions.Logging` that suppresses repeated log entries per key and reports the suppressed count when logging resumes.
 
