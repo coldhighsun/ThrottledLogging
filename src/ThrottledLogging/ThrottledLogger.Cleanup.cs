@@ -1,4 +1,3 @@
-
 namespace ThrottledLogging;
 
 public partial class ThrottledLogger

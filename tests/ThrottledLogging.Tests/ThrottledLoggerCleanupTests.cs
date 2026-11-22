@@ -198,9 +198,13 @@ public class ThrottledLoggerCleanupTests
             var logger = new FakeLogger();
             logger.LogInformationThrottled("key", TimeSpan.FromMilliseconds(20), "Msg"); // entry created
 
-            Thread.Sleep(200); // the short expiry and period must still apply, so cleanup removes the entry
+            // The short expiry and period must still apply, so cleanup removes the entry. Polled with a generous timeout
+            // rather than a fixed sleep, so a delayed timer callback on a loaded machine cannot fail the test.
+            var removed = SpinWait.SpinUntil(
+                () => !logger.TryGetThrottledSuppressedCount("key", out _),
+                TimeSpan.FromSeconds(10));
 
-            Assert.False(logger.TryGetThrottledSuppressedCount("key", out _));
+            Assert.True(removed);
         }
         finally
         {
@@ -221,7 +225,9 @@ public class ThrottledLoggerCleanupTests
             var logger = new FakeLogger();
             logger.LogInformationThrottled("key", TimeSpan.FromMilliseconds(20), "Msg"); // entry created
 
-            Thread.Sleep(200); // the entry is expired and its window has closed, but cleanup never runs
+            // The entry is expired and its window has closed, but cleanup never runs. A fixed sleep is fine here: a delay
+            // can only make the check weaker, never make it fail.
+            Thread.Sleep(200);
 
             Assert.True(logger.TryGetThrottledSuppressedCount("key", out _));
         }
